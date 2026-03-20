@@ -1,0 +1,15 @@
+# 本地数据文件
+# 这些是浏览器本地存储，不需要提交到 Git
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 其他
+*.log
