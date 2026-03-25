@@ -104,7 +104,7 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
-    overflow: visible;
+    overflow: hidden;
     min-height: 0;
     min-width: 260px;
   }
@@ -112,12 +112,90 @@
   .col-right {
     flex: 1;
     min-height: 0;
-    overflow: visible;
+    overflow: hidden;
     display: flex;
     flex-direction: column;
     gap: 8px;
     min-width: 260px;
   }
+  /* 尺寸滑动模块卡片（现在在设置面板内）*/
+  .size-item {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .size-item-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .size-item-label {
+    font-size: 12px;
+    color: var(--sub);
+    white-space: nowrap;
+  }
+  .size-item-val {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent);
+    min-width: 30px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  .size-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border);
+    outline: none;
+    cursor: pointer;
+    transition: background .15s;
+  }
+  .size-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    cursor: pointer;
+    box-shadow: 0 1px 6px rgba(79,142,247,.4);
+    transition: transform .15s, box-shadow .15s;
+  }
+  .size-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.25);
+    box-shadow: 0 2px 10px rgba(79,142,247,.6);
+  }
+  .size-slider::-webkit-slider-runnable-track {
+    height: 4px;
+    border-radius: 2px;
+  }
+  /* 滑动轨道填充色（用 JS 动态更新 background） */
+  .size-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 2px 0;
+  }
+  .size-reset-btn {
+    width: 100%;
+    margin-top: 4px;
+    padding: 7px 0;
+    font-size: 12px;
+    font-weight: 600;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    color: var(--sub);
+    cursor: pointer;
+    transition: border-color .2s, color .2s;
+  }
+  .size-reset-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
   /* 底部隐藏 */
   .col-bottom {
     display: none;
@@ -140,12 +218,12 @@
     overflow: hidden;
   }
 
-  /* 卡片行高拖拽把手 — 绝对定位在卡片正下方，不占 flow */
+  /* 卡片行高拖拽把手 — 绝对定位在卡片底部内侧，不超出容器 */
   .card-resize-handle {
     position: absolute;
-    bottom: -6px;
+    bottom: 0;
     left: 0; right: 0;
-    height: 12px;
+    height: 10px;
     cursor: row-resize;
     display: flex;
     align-items: center;
@@ -602,7 +680,7 @@
     position: absolute;
     top: calc(100% + 8px);
     right: 0;
-    width: 420px;
+    width: 460px;
     background: var(--card);
     border: 1px solid var(--border);
     border-radius: var(--radius);
@@ -952,6 +1030,7 @@
         <div class="settings-panel-tabs">
           <button class="sp-tab active" onclick="switchSpTab('general', this)">⚙️ 通用设置</button>
           <button class="sp-tab" onclick="switchSpTab('cloud', this)">☁️ 云端同步</button>
+          <button class="sp-tab" onclick="switchSpTab('sizes', this)">🔲 界面尺寸</button>
         </div>
         <!-- 通用设置 -->
         <div class="sp-pane active" id="sp-pane-general">
@@ -1015,6 +1094,87 @@
               <button class="btn btn-danger" onclick="cloudDisconnect()" style="padding:6px 12px;font-size:12px;">断开</button>
             </div>
             <div style="margin-top:8px;font-size:11px;color:var(--sub);">Gist：<span id="cloud-gist-id-display" style="color:var(--text);font-family:monospace;font-size:10px;"></span></div>
+          </div>
+        </div>
+        <!-- 界面尺寸 -->
+        <div class="sp-pane" id="sp-pane-sizes">
+          <div style="display:flex;flex-direction:column;gap:14px;">
+
+            <div class="size-item">
+              <div class="size-item-header">
+                <span class="size-item-label">⏱ 倒计时字号</span>
+                <span class="size-item-val" id="sz-val-countdown">72</span>
+              </div>
+              <input type="range" class="size-slider" id="sz-countdown"
+                     min="32" max="140" value="72" step="2"
+                     oninput="applySize('countdown', this.value)">
+            </div>
+
+            <div class="size-item">
+              <div class="size-item-header">
+                <span class="size-item-label">🕐 时间数字字号</span>
+                <span class="size-item-val" id="sz-val-timenum">26</span>
+              </div>
+              <input type="range" class="size-slider" id="sz-timenum"
+                     min="14" max="52" value="26" step="1"
+                     oninput="applySize('timenum', this.value)">
+            </div>
+
+            <div class="size-item">
+              <div class="size-item-header">
+                <span class="size-item-label">📊 统计数字字号</span>
+                <span class="size-item-val" id="sz-val-statnum">22</span>
+              </div>
+              <input type="range" class="size-slider" id="sz-statnum"
+                     min="12" max="44" value="22" step="1"
+                     oninput="applySize('statnum', this.value)">
+            </div>
+
+            <div class="size-divider"></div>
+
+            <div class="size-item">
+              <div class="size-item-header">
+                <span class="size-item-label">📦 卡片内边距</span>
+                <span class="size-item-val" id="sz-val-padding">16</span>
+              </div>
+              <input type="range" class="size-slider" id="sz-padding"
+                     min="6" max="32" value="16" step="1"
+                     oninput="applySize('padding', this.value)">
+            </div>
+
+            <div class="size-item">
+              <div class="size-item-header">
+                <span class="size-item-label">◉ 卡片圆角</span>
+                <span class="size-item-val" id="sz-val-radius">14</span>
+              </div>
+              <input type="range" class="size-slider" id="sz-radius"
+                     min="0" max="28" value="14" step="1"
+                     oninput="applySize('radius', this.value)">
+            </div>
+
+            <div class="size-divider"></div>
+
+            <div class="size-item">
+              <div class="size-item-header">
+                <span class="size-item-label">↔ 主体内边距</span>
+                <span class="size-item-val" id="sz-val-mainpad">10</span>
+              </div>
+              <input type="range" class="size-slider" id="sz-mainpad"
+                     min="0" max="24" value="10" step="1"
+                     oninput="applySize('mainpad', this.value)">
+            </div>
+
+            <div class="size-item">
+              <div class="size-item-header">
+                <span class="size-item-label">📋 项目列表字号</span>
+                <span class="size-item-val" id="sz-val-projfont">13</span>
+              </div>
+              <input type="range" class="size-slider" id="sz-projfont"
+                     min="10" max="20" value="13" step="1"
+                     oninput="applySize('projfont', this.value)">
+            </div>
+
+            <button class="size-reset-btn" onclick="resetAllSizes()">↺ 重置默认值</button>
           </div>
         </div>
       </div>
@@ -1298,23 +1458,30 @@
     const rightCol = document.getElementById(rightColId);
     if (!divider || !leftCol || !rightCol) return;
 
-    let startX, startLeftW, startRightW;
+    let startX, startLeftW, startRightW, totalW;
 
     divider.addEventListener('mousedown', function(e) {
       e.preventDefault();
       startX      = e.clientX;
       startLeftW  = leftCol.getBoundingClientRect().width;
       startRightW = rightCol.getBoundingClientRect().width;
+      // 记录两列总宽，拖拽时保持总宽不变（不影响其他列）
+      totalW = startLeftW + startRightW;
       divider.classList.add('dragging');
       document.body.style.cursor = 'col-resize';
       document.body.style.userSelect = 'none';
 
       function onMove(e) {
-        const dx   = e.clientX - startX;
-        const newL = Math.max(minL, startLeftW + dx);
-        const newR = Math.max(minR, startRightW - dx);
-        // 防止两侧同时超出最小值
-        if (newL === minL || newR === minR) return;
+        const dx = e.clientX - startX;
+        // 理想左宽，双端夹紧：不得小于各自最小值，且两侧之和 = totalW
+        let newL = startLeftW + dx;
+        // 左侧夹紧
+        newL = Math.max(minL, newL);
+        // 右侧夹紧（右侧宽 = totalW - 左侧宽）
+        newL = Math.min(totalW - minR, newL);
+
+        const newR = totalW - newL;
+
         leftCol.style.flex  = 'none';
         rightCol.style.flex = 'none';
         leftCol.style.width  = newL + 'px';
@@ -1342,6 +1509,124 @@
 })();
 
 // ============================================================
+// 尺寸滑动模块（界面尺寸调节 + localStorage 持久化）
+// ============================================================
+(function initSizePanel() {
+  const SIZE_KEY = 'worktimer_sizes_v1';
+
+  // 默认值
+  const DEFAULTS = {
+    countdown: 72,
+    timenum:   26,
+    statnum:   22,
+    padding:   16,
+    radius:    14,
+    mainpad:   10,
+    projfont:  13,
+  };
+
+  // 当前值（先用默认值，DOMContentLoaded 后从 localStorage 恢复）
+  let sizes = Object.assign({}, DEFAULTS);
+
+  // 应用单项尺寸
+  window.applySize = function(key, rawVal) {
+    const val = parseInt(rawVal, 10);
+    sizes[key] = val;
+
+    // 更新数值标签
+    const valEl = document.getElementById('sz-val-' + key);
+    if (valEl) valEl.textContent = val;
+
+    // 更新滑块轨道填充色
+    updateSliderTrack(key, val);
+
+    // 实际应用到界面
+    switch (key) {
+      case 'countdown':
+        // 倒计时大数字（允许 ResizeObserver 之后再覆盖，故直接设样式变量辅助）
+        document.querySelectorAll('.countdown-display').forEach(el => {
+          el.style.fontSize = val + 'px';
+        });
+        break;
+      case 'timenum':
+        document.querySelectorAll('.time-item-val').forEach(el => {
+          el.style.fontSize = val + 'px';
+        });
+        break;
+      case 'statnum':
+        document.querySelectorAll('.stat-val').forEach(el => {
+          el.style.fontSize = val + 'px';
+        });
+        break;
+      case 'padding':
+        document.querySelectorAll('.card, .card-scroll, .project-card').forEach(el => {
+          el.style.padding = val + 'px ' + Math.round(val * 1.1) + 'px';
+        });
+        break;
+      case 'radius':
+        document.documentElement.style.setProperty('--radius', val + 'px');
+        break;
+      case 'mainpad':
+        const mainEl = document.querySelector('main');
+        if (mainEl) mainEl.style.padding = val + 'px ' + Math.round(val * 1.4) + 'px ' + val + 'px';
+        break;
+      case 'projfont':
+        document.querySelectorAll('.project-list, .project-list *').forEach(el => {
+          el.style.fontSize = val + 'px';
+        });
+        break;
+    }
+
+    // 持久化
+    saveSizes();
+  };
+
+  // 重置所有尺寸为默认值
+  window.resetAllSizes = function() {
+    sizes = Object.assign({}, DEFAULTS);
+    Object.keys(DEFAULTS).forEach(key => {
+      const slider = document.getElementById('sz-' + key);
+      if (slider) slider.value = DEFAULTS[key];
+      applySize(key, DEFAULTS[key]);
+    });
+    saveSizes();
+  };
+
+  function saveSizes() {
+    localStorage.setItem(SIZE_KEY, JSON.stringify(sizes));
+  }
+
+  function loadSizes() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(SIZE_KEY));
+      if (saved) sizes = Object.assign({}, DEFAULTS, saved);
+    } catch(e) {}
+  }
+
+  // 更新滑块轨道左侧填充颜色（进度感）
+  function updateSliderTrack(key, val) {
+    const slider = document.getElementById('sz-' + key);
+    if (!slider) return;
+    const min = parseInt(slider.min, 10);
+    const max = parseInt(slider.max, 10);
+    const pct = Math.round(((val - min) / (max - min)) * 100);
+    slider.style.background =
+      `linear-gradient(to right, var(--accent) 0%, var(--accent) ${pct}%, var(--border) ${pct}%, var(--border) 100%)`;
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    loadSizes();
+
+    // 恢复滑块位置 + 界面值
+    Object.keys(sizes).forEach(key => {
+      const slider = document.getElementById('sz-' + key);
+      if (slider) slider.value = sizes[key];
+      applySize(key, sizes[key]);
+    });
+  });
+})();
+
+// ============================================================
 // 卡片行高拖拽（绝对定位把手，拖拽时改自身高度）
 // ============================================================
 (function initRowResize() {
@@ -1351,7 +1636,8 @@
       const target   = document.getElementById(targetId);
       if (!target) return;
 
-      let startY, startH;
+      const MIN_H = 60;  // 单卡最小高度
+      let startY, startH, maxH;
 
       handle.addEventListener('mousedown', function(e) {
         e.preventDefault();
@@ -1359,6 +1645,20 @@
         startY = e.clientY;
         startH = target.getBoundingClientRect().height;
         if (startH < 10) startH = 200; // 兜底：flex:1撑满时可能返回0
+
+        // 计算上限：父容器可用高度 - 其他兄弟 resizable-card 的最小高度
+        const parent = target.parentElement;
+        if (parent) {
+          const parentH = parent.getBoundingClientRect().height;
+          const siblings = Array.from(parent.children).filter(
+            el => el !== target && el.classList.contains('resizable-card')
+          );
+          const sibMinH = siblings.length * MIN_H;
+          maxH = Math.max(startH, parentH - sibMinH - 16); // 16 = gap 余量
+        } else {
+          maxH = window.innerHeight * 0.9;
+        }
+
         // 固定当前高度，脱离 flex 伸缩（用 setProperty 覆盖 !important）
         target.style.setProperty('flex', 'none', 'important');
         target.style.setProperty('height', startH + 'px', 'important');
@@ -1368,7 +1668,7 @@
 
         function onMove(e) {
           const dy   = e.clientY - startY;
-          const newH = Math.max(60, startH + dy);
+          const newH = Math.min(maxH, Math.max(MIN_H, startH + dy));
           target.style.setProperty('height', newH + 'px', 'important');
         }
         function onUp() {
@@ -1387,94 +1687,16 @@
 })();
 
 // ============================================================
-// 倒计时字号自适应（= 中栏宽度 × 75% ÷ 8字符，含上下限）
+// 倒计时字号：由「界面尺寸」滑块完全控制，不再自动随列宽变化
+// （ResizeObserver 已移除；初始值由 initSizePanel 在 DOMContentLoaded 时写入）
 // ============================================================
-(function initCountdownFontResize() {
-  function setup() {
-    const colMid = document.getElementById('col-mid');
-    const display = document.getElementById('countdown');
-    if (!colMid || !display) return;
-
-    function updateSize() {
-      const W = colMid.getBoundingClientRect().width;
-      if (!W) return;
-      // "00:00:00" = 8字符，字体等宽，粗略字宽约0.6em
-      // 目标：文字渲染宽度 ≈ 容器宽度 × 0.75
-      // fontSize × 8 × 0.6 ≈ W × 0.75  →  fontSize = W × 0.75 / 4.8
-      const fs = Math.min(Math.max(W * 0.75 / 4.8, 36), 120);
-      display.style.fontSize = fs.toFixed(1) + 'px';
-    }
-
-    if (window.ResizeObserver) {
-      new ResizeObserver(updateSize).observe(colMid);
-    } else {
-      window.addEventListener('resize', updateSize);
-    }
-    // 拖拽列宽时也触发（延迟一帧确保宽度已更新）
-    document.addEventListener('mousemove', function() {
-      requestAnimationFrame(updateSize);
-    });
-    updateSize(); // 立即执行一次
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', setup);
-  } else {
-    setup();
-  }
-})();
+// (initCountdownFontResize removed)
 
 // ============================================================
-// 时间信息行 4格 & 统计卡片 数字字号 = 框高 × 75% × 0.55（上下限保护）
-// 同一个工厂函数，传入容器ID + 值元素选择器
+// 时间信息行 & 统计卡片字号：由「界面尺寸」滑块完全控制，不再随框高变化
+// （ResizeObserver 已移除；初始值由 initSizePanel 在 DOMContentLoaded 时写入）
 // ============================================================
-(function initCardFontResize() {
-  /**
-   * @param {string} containerId  - 要监听尺寸的外层容器ID
-   * @param {string} valSelector  - 容器内所有"大数字"元素的CSS选择器
-   * @param {number} ratio        - 目标字号 / 单个格子高度 (0~1)
-   * @param {number} min          - 最小字号px
-   * @param {number} max          - 最大字号px
-   * @param {number} rowCount     - 格子行数（用于计算单格高度）
-   */
-  function setupResize(containerId, valSelector, ratio, min, max, rowCount) {
-    function setup() {
-      const container = document.getElementById(containerId);
-      if (!container) return;
-
-      function update() {
-        const H = container.getBoundingClientRect().height;
-        if (!H) return;
-        // 单格高度 = 容器高度 / rowCount（grid等高）
-        const cellH = H / rowCount;
-        const fs = Math.min(Math.max(cellH * ratio, min), max);
-        container.querySelectorAll(valSelector).forEach(el => {
-          el.style.fontSize = fs.toFixed(1) + 'px';
-        });
-      }
-
-      if (window.ResizeObserver) {
-        new ResizeObserver(update).observe(container);
-      } else {
-        window.addEventListener('resize', update);
-      }
-      document.addEventListener('mousemove', () => requestAnimationFrame(update));
-      update();
-    }
-
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', setup);
-    } else {
-      setup();
-    }
-  }
-
-  // 时间信息行：rc-timerow，2行2列，单格高=总高/2，目标字号=单格高×0.42
-  setupResize('rc-timerow', '.time-item-val', 0.42, 14, 52, 2);
-
-  // 统计卡片：rc-stats，2行2列，单格高=总高/2，目标字号=单格高×0.42
-  setupResize('rc-stats', '.stat-val', 0.42, 14, 48, 2);
-})();
+// (initCardFontResize removed)
 
 // ============================================================
 // 设置面板控制
@@ -1507,9 +1729,12 @@ const SHOOTING_KEY = 'worktimer_shooting_v2';
 const EDITING_KEY = 'worktimer_editing_v2';
 const LAYOUT_KEY  = 'worktimer_layout_v1';  // 布局状态（列宽+行高）
 
-// 保存当前布局到 localStorage
+// 保存当前布局到 localStorage（含当前视口尺寸，用于后续按比例缩放）
 function saveLayout() {
-  const layout = {};
+  const layout = {
+    _vw: window.innerWidth,
+    _vh: window.innerHeight,
+  };
   // 列宽
   ['col-left','col-mid','col-right'].forEach(id => {
     const el = document.getElementById(id);
@@ -1526,29 +1751,55 @@ function saveLayout() {
   localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout));
 }
 
-// 从 localStorage 恢复布局
+// 列宽最小值映射
+const COL_MIN_W = { 'col-left': 180, 'col-mid': 260, 'col-right': 260 };
+// 行高最小值
+const CARD_MIN_H = 60;
+
+// 从 localStorage 恢复布局，并按当前视口 vs 保存时视口的比例缩放
 function restoreLayout() {
   try {
     const layout = JSON.parse(localStorage.getItem(LAYOUT_KEY));
     if (!layout) return;
-    // 恢复列宽（仅宽度有效时）
+
+    // 计算缩放比例（若没有保存视口尺寸则默认比例 1）
+    const savedVW = layout._vw || window.innerWidth;
+    const savedVH = layout._vh || window.innerHeight;
+    const scaleW  = window.innerWidth  / savedVW;
+    const scaleH  = window.innerHeight / savedVH;
+
+    // 恢复列宽（按宽度比例缩放，并夹紧最小值）
     ['col-left','col-mid','col-right'].forEach(id => {
       const el = document.getElementById(id);
       if (el && layout[id] > 50) {
-        el.style.setProperty('width', layout[id] + 'px', 'important');
+        const scaled = Math.max(COL_MIN_W[id] || 180, Math.round(layout[id] * scaleW));
+        el.style.setProperty('width', scaled + 'px', 'important');
         el.style.setProperty('flex', 'none', 'important');
       }
     });
-    // 恢复行高
+
+    // 恢复行高（按高度比例缩放，并夹紧最小值）
     ['rc-calendar','rc-stats','rc-countdown','rc-timerow','rc-shooting','rc-editing'].forEach(id => {
       const el = document.getElementById(id);
       if (el && layout[id] > 10) {
-        el.style.setProperty('flex',   'none',             'important');
-        el.style.setProperty('height', layout[id] + 'px', 'important');
+        const scaled = Math.max(CARD_MIN_H, Math.round(layout[id] * scaleH));
+        el.style.setProperty('flex',   'none',           'important');
+        el.style.setProperty('height', scaled + 'px',    'important');
       }
     });
   } catch(e) {}
 }
+
+// 窗口 resize 时，按比例重新应用布局（防抖 200ms）
+(function initResponsiveLayout() {
+  let _resizeTimer = null;
+  window.addEventListener('resize', function() {
+    clearTimeout(_resizeTimer);
+    _resizeTimer = setTimeout(function() {
+      restoreLayout();
+    }, 200);
+  });
+})();
 
 function loadSettings() {
   try { return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}; } catch { return {}; }
