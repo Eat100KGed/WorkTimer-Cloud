@@ -21,66 +21,221 @@
     --radius: 14px;
   }
   * { margin:0; padding:0; box-sizing:border-box; }
+  html, body {
+    height: 100%;
+  }
   body {
     background: var(--bg);
     color: var(--text);
     font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
-    min-height: 100vh;
+    height: 100vh;
     display: flex;
     flex-direction: column;
-    align-items: center;
+    overflow: hidden;
   }
 
   /* ===== 顶部 ===== */
   header {
     width: 100%;
-    max-width: 900px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 22px 28px 10px;
+    padding: 10px 24px 8px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
   }
-  .logo { display:flex; align-items:center; gap:10px; }
-  .logo-icon { font-size:28px; }
-  .logo-text { font-size:22px; font-weight:700; background: linear-gradient(135deg,var(--accent),var(--accent2)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
-  .today-label { font-size:13px; color:var(--sub); }
+  .logo { display:flex; align-items:center; gap:8px; }
+  .logo-icon { font-size:22px; }
+  .logo-text { font-size:18px; font-weight:700; background: linear-gradient(135deg,var(--accent),var(--accent2)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+  .today-label { font-size:12px; color:var(--sub); }
 
-  /* ===== 主卡片 ===== */
-  main { width:100%; max-width:900px; padding: 10px 18px 40px; }
+  /* ===== 主体布局 ===== */
+  main {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: row;
+    gap: 0;
+    padding: 10px 14px 10px;
+    min-height: 0;
+  }
+
+  /* 列拖拽分隔条 */
+  .col-divider {
+    width: 8px;
+    flex-shrink: 0;
+    cursor: col-resize;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    z-index: 10;
+    user-select: none;
+  }
+  .col-divider::after {
+    content: '';
+    width: 2px;
+    height: 60%;
+    background: var(--border);
+    border-radius: 2px;
+    transition: background .2s, height .2s;
+  }
+  .col-divider:hover::after,
+  .col-divider.dragging::after {
+    background: var(--accent);
+    height: 80%;
+  }
+
+  /* 左栏：日历 + 历史记录（次要内容） */
+  .col-left {
+    width: 300px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    overflow: hidden;
+    min-height: 0;
+    min-width: 180px;
+    max-width: 520px;
+  }
+  /* 中栏：倒计时 + 开关机时间 + 时间设置（核心功能） */
+  .col-mid {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    overflow: visible;
+    min-height: 0;
+    min-width: 260px;
+  }
+  /* 右栏：拍摄项目 + 剪辑项目 */
+  .col-right {
+    flex: 1;
+    min-height: 0;
+    overflow: visible;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 260px;
+  }
+  /* 底部隐藏 */
+  .col-bottom {
+    display: none;
+  }
+
+  /* 可调高度的卡片容器 — relative 用于绝对定位把手 */
+  .resizable-card {
+    position: relative;
+    flex-shrink: 0;
+    min-height: 60px;
+    display: flex;
+    flex-direction: column;
+    overflow: visible;   /* 让把手可以超出底部 */
+  }
+  .resizable-card .card,
+  .resizable-card .calendar-card,
+  .resizable-card .project-card {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  /* 卡片行高拖拽把手 — 绝对定位在卡片正下方，不占 flow */
+  .card-resize-handle {
+    position: absolute;
+    bottom: -6px;
+    left: 0; right: 0;
+    height: 12px;
+    cursor: row-resize;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 20;
+  }
+  .card-resize-handle::after {
+    content: '';
+    width: 40px;
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    transition: background .2s, width .2s;
+  }
+  .card-resize-handle:hover::after,
+  .card-resize-handle.dragging::after {
+    background: var(--accent);
+    width: 56px;
+  }
+
+  /* 历史记录撑满剩余高度 */
+  .col-left .history-resizable {
+    flex: 1;
+    min-height: 100px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  /* 项目卡片 flex 撑满 */
+  .col-right .project-card {
+    flex: 1;
+  }
+
+  /* 中栏倒计时卡片撑满剩余高度 */
+  #rc-countdown {
+    flex: 1 !important;
+    height: auto !important;
+  }
 
   .card {
     background: var(--card);
     border: 1px solid var(--border);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
-    padding: 24px 28px;
-    margin-bottom: 18px;
+    padding: 16px 18px;
+    flex-shrink: 0;
+  }
+  .card-scroll {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 16px 18px;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
   }
 
   /* --- 倒计时核心 --- */
   .timer-hero {
     text-align: center;
-    padding: 30px 0 20px;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    min-height: 0;
   }
   .season-badge {
     display: inline-block;
-    padding: 3px 14px;
+    padding: 2px 12px;
     border-radius: 20px;
-    font-size:12px;
+    font-size:11px;
     font-weight:600;
     letter-spacing:1px;
-    margin-bottom: 18px;
+    margin-bottom: 10px;
   }
   .season-summer { background: rgba(251,191,36,.15); color: var(--yellow); border:1px solid rgba(251,191,36,.3); }
   .season-winter { background: rgba(99,179,237,.15); color: #63b3ed; border:1px solid rgba(99,179,237,.3); }
 
   .countdown-display {
-    font-size: 72px;
+    font-size: 72px; /* JS ResizeObserver 动态覆盖 */
     font-weight: 800;
     letter-spacing: -2px;
     line-height: 1;
     font-variant-numeric: tabular-nums;
-    transition: color .4s;
+    transition: color .4s, font-size .15s ease;
   }
   .countdown-display.done { color: var(--green); }
   .countdown-display.soon { color: var(--yellow); animation: pulse 1s infinite; }
@@ -99,11 +254,11 @@
   .countdown-sub span { color: var(--text); font-weight: 600; }
 
   .progress-bar-wrap {
-    margin: 20px auto 0;
+    margin: 12px auto 0;
     max-width: 500px;
     background: var(--border);
     border-radius: 8px;
-    height: 8px;
+    height: 6px;
     overflow: hidden;
   }
   .progress-bar {
@@ -113,29 +268,44 @@
     transition: width .5s ease;
   }
 
-  /* --- 时间信息行 --- */
+  /* --- 时间信息行（2×2）--- */
   .time-row {
-    display: flex;
-    gap: 14px;
-    flex-wrap: wrap;
-    margin-bottom: 18px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 6px;
+    height: 100%;
   }
   .time-item {
-    flex:1;
-    min-width: 160px;
+    background: var(--card2);
+    border: 1px solid var(--border);
+  .time-item {
     background: var(--card2);
     border: 1px solid var(--border);
     border-radius: 10px;
-    padding: 14px 18px;
+    padding: 8px 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    min-height: 0;
+    overflow: hidden;
   }
-  .time-item-label { font-size:12px; color:var(--sub); margin-bottom:6px; }
+  .time-item-label { font-size:11px; color:var(--sub); margin-bottom:3px; letter-spacing:.3px; }
   .time-item-val {
-    font-size: 24px;
+    font-size: 26px;
     font-weight: 700;
     font-variant-numeric: tabular-nums;
-    color: var(--text);
+    line-height: 1.1;
   }
-  .time-item-sub { font-size:12px; color:var(--sub); margin-top:3px; }
+  .time-item-sub { font-size:10px; color:var(--sub); margin-top:2px; }
+
+  /* 各格数字着色 */
+  #disp-boot   { color: #60a5fa; }   /* 开机 — 蓝 */
+  #disp-off    { color: #f59e0b; }   /* 应下班 — 琥珀 */
+  #disp-now    { color: #34d399; }   /* 当前时间 — 绿 */
+  #disp-month  { color: #a78bfa; }   /* 本月记录 — 紫 */
 
   /* --- 手动调整 --- */
   .adjust-row {
@@ -210,12 +380,12 @@
 
   /* --- section 标题 --- */
   .section-title {
-    font-size:15px;
+    font-size:13px;
     font-weight:700;
     color:var(--sub);
     text-transform:uppercase;
     letter-spacing:.8px;
-    margin-bottom:16px;
+    margin-bottom:10px;
     display:flex;
     align-items:center;
     gap:8px;
@@ -233,8 +403,9 @@
     justify-content:space-between;
     align-items:center;
     flex-wrap:wrap;
-    gap:10px;
-    margin-bottom:14px;
+    gap:8px;
+    margin-bottom:8px;
+    flex-shrink: 0;
   }
   .table-wrap {
     overflow-x:auto;
@@ -298,24 +469,23 @@
   .edit-btn:hover { color:var(--accent); }
   .empty-row td { text-align:center; color:var(--sub); padding:30px; }
 
-  /* --- 统计卡片 --- */
+  /* --- 统计卡片（2×2）--- */
   .stats-row {
-    display:flex;
-    gap:14px;
-    flex-wrap:wrap;
-    margin-bottom:18px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
   }
   .stat-card {
     flex:1;
-    min-width:120px;
+    min-width:80px;
     background: var(--card2);
     border:1px solid var(--border);
     border-radius:10px;
-    padding:14px 16px;
+    padding:10px 12px;
     text-align:center;
   }
-  .stat-val { font-size:28px; font-weight:800; }
-  .stat-label { font-size:12px; color:var(--sub); margin-top:4px; }
+  .stat-val { font-size:22px; font-weight:800; }
+  .stat-label { font-size:11px; color:var(--sub); margin-top:3px; }
   .stat-blue .stat-val { color:var(--accent); }
   .stat-green .stat-val { color:var(--green); }
   .stat-yellow .stat-val { color:var(--yellow); }
@@ -400,10 +570,109 @@
   }
   .setting-input:focus { border-color:var(--accent); }
 
+  /* ===== 右上角设置按钮 & 下拉菜单 ===== */
+  .settings-btn-wrap {
+    position: relative;
+  }
+  .settings-toggle-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--card2);
+    color: var(--sub);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .2s;
+  }
+  .settings-toggle-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .settings-panel {
+    display: none;
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    width: 420px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: 0 8px 40px rgba(0,0,0,.6);
+    z-index: 500;
+    overflow: hidden;
+  }
+  .settings-panel.show { display: block; }
+  .settings-panel-inner {
+    padding: 20px;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+  .settings-panel-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .sp-tab {
+    flex: 1;
+    padding: 12px 16px;
+    border: none;
+    background: transparent;
+    color: var(--sub);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .2s;
+    border-bottom: 2px solid transparent;
+  }
+  .sp-tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+    background: rgba(79,142,247,.05);
+  }
+  .sp-tab:hover:not(.active) { color: var(--text); background: rgba(255,255,255,.03); }
+  .sp-pane { display: none; padding: 18px 20px; }
+  .sp-pane.active { display: block; }
+
   /* 响应式 */
-  @media(max-width:600px) {
-    .countdown-display { font-size:52px; }
+  @media(max-width:1100px) {
+    .col-left { width: 260px; }
+  }
+  @media(max-width:900px) {
+    body { overflow: auto; height: auto; }
+    main {
+      flex-direction: column;
+      overflow: visible;
+      height: auto;
+      padding: 10px 12px 30px;
+    }
+    .col-left {
+      width: 100%;
+      max-width: 100%;
+      overflow: visible;
+      min-height: auto;
+    }
+    .col-mid, .col-right {
+      overflow: visible;
+      min-height: auto;
+    }
+    .col-divider { display: none; }
+    .resizable-card { height: auto !important; }
+    .card-resize-handle { display: none; }
+    .col-left, .col-mid { gap: 10px; }
+    .col-bottom { display: none; }
+    .calendar-card, .project-card {
+      flex: none;
+      height: auto;
+    }
+    .project-list { max-height: 200px; }
+    .countdown-display { font-size:54px; }
     .settings-grid { grid-template-columns:1fr; }
+    .settings-panel { width: min(420px, 92vw); right: -10px; }
   }
 
   /* 滚动条美化 */
@@ -454,23 +723,26 @@
     border: 1px solid var(--border);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
-    padding: 24px 28px;
-    margin-bottom: 18px;
+    padding: 14px 16px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
   }
   .calendar-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 20px;
+    margin-bottom: 10px;
+    flex-shrink: 0;
   }
   .calendar-nav-btn {
     background: var(--card2);
     border: 1px solid var(--border);
     border-radius: 8px;
     color: var(--text);
-    padding: 8px 16px;
+    padding: 5px 12px;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 13px;
     transition: all 0.2s;
   }
   .calendar-nav-btn:hover {
@@ -479,21 +751,22 @@
     border-color: var(--accent);
   }
   .calendar-title {
-    font-size: 18px;
+    font-size: 15px;
     font-weight: 700;
     color: var(--text);
   }
   .calendar-grid {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
-    gap: 6px;
+    gap: 4px;
+    flex-shrink: 0;
   }
   .calendar-day-header {
     text-align: center;
-    font-size: 13px;
+    font-size: 11px;
     color: var(--sub);
     font-weight: 600;
-    padding: 10px 0;
+    padding: 6px 0;
   }
   .calendar-day {
     aspect-ratio: 1;
@@ -502,9 +775,9 @@
     justify-content: center;
     background: var(--card2);
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-radius: 6px;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 12px;
     font-weight: 600;
     color: var(--text);
     transition: all 0.2s;
@@ -542,14 +815,19 @@
     border: 1px solid var(--border);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
-    padding: 24px 28px;
-    margin-bottom: 18px;
+    padding: 14px 16px;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
   }
   .project-form {
     display: flex;
-    gap: 10px;
-    margin-bottom: 16px;
+    gap: 8px;
+    margin-bottom: 10px;
     flex-wrap: wrap;
+    flex-shrink: 0;
   }
   .project-input {
     flex: 1;
@@ -566,8 +844,9 @@
     border-color: var(--accent);
   }
   .project-list {
-    max-height: 400px;
+    flex: 1;
     overflow-y: auto;
+    min-height: 0;
   }
   .project-item {
     display: flex;
@@ -654,318 +933,474 @@
 <header>
   <div class="logo">
     <span class="logo-icon">⏱</span>
-    <span class="logo-text">WorkTimer</span>
+    <span class="logo-text">WorkTimer Cloud</span>
   </div>
-  <div style="text-align:right">
+  <div style="display:flex;align-items:center;gap:16px;">
     <div id="today-date" class="today-label"></div>
-    <div id="current-time"></div>
+    <div id="current-time" style="font-size:13px;color:var(--sub);font-variant-numeric:tabular-nums;"></div>
+    <!-- 右上角设置按钮 -->
+    <div class="settings-btn-wrap" id="settings-btn-wrap">
+      <button class="settings-toggle-btn" onclick="toggleSettingsPanel()" title="设置">
+        ⚙️ 设置
+      </button>
+      <div class="settings-panel" id="settings-panel">
+        <div class="settings-panel-tabs">
+          <button class="sp-tab active" onclick="switchSpTab('general', this)">⚙️ 通用设置</button>
+          <button class="sp-tab" onclick="switchSpTab('cloud', this)">☁️ 云端同步</button>
+        </div>
+        <!-- 通用设置 -->
+        <div class="sp-pane active" id="sp-pane-general">
+          <div class="settings-grid">
+            <div class="setting-item">
+              <label>夏季开始月</label>
+              <input type="number" id="set-summer-start" class="setting-input" min="1" max="12" value="4" onchange="saveSettings()">
+            </div>
+            <div class="setting-item">
+              <label>夏季结束月</label>
+              <input type="number" id="set-summer-end" class="setting-input" min="1" max="12" value="10" onchange="saveSettings()">
+            </div>
+            <div class="setting-item">
+              <label>夏季工时（分）</label>
+              <input type="number" id="set-summer-min" class="setting-input" min="60" max="720" value="530" onchange="saveSettings()">
+            </div>
+            <div class="setting-item">
+              <label>冬季工时（分）</label>
+              <input type="number" id="set-winter-min" class="setting-input" min="60" max="720" value="500" onchange="saveSettings()">
+            </div>
+          </div>
+          <div style="margin-top:14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <button class="btn btn-primary" onclick="exportData()" style="padding:7px 14px;font-size:13px;">📤 导出</button>
+            <button class="btn btn-ghost" onclick="document.getElementById('import-file-input').click()" style="padding:7px 14px;font-size:13px;">📥 导入</button>
+            <button class="btn btn-ghost" onclick="clearAllData()" style="padding:7px 14px;font-size:13px;">🗑 清除</button>
+          </div>
+          <input type="file" id="import-file-input" accept=".json" style="display:none" onchange="importData(event)">
+        </div>
+        <!-- 云端同步 -->
+        <div class="sp-pane" id="sp-pane-cloud">
+          <div id="cloud-unconfigured">
+            <p style="font-size:12px;color:var(--sub);margin-bottom:12px;line-height:1.6;">
+              通过 <strong style="color:var(--text)">GitHub Gist</strong> 跨设备同步，需要 Personal Access Token（gist 权限）。
+            </p>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <div class="setting-item">
+                <label>GitHub Token</label>
+                <input type="password" id="cloud-token-input" class="setting-input" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
+              </div>
+              <div class="setting-item">
+                <label>Gist ID（留空自动创建）</label>
+                <input type="text" id="cloud-gist-id-input" class="setting-input" placeholder="留空自动创建">
+              </div>
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                <button class="btn btn-primary" onclick="cloudConnect()" style="padding:7px 14px;font-size:13px;">🔗 连接</button>
+                <a href="https://github.com/settings/tokens/new?scopes=gist&description=WorkTimer" target="_blank" style="font-size:12px;color:var(--accent);text-decoration:none;">→ 生成 Token</a>
+              </div>
+            </div>
+          </div>
+          <div id="cloud-configured" style="display:none;">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap;">
+              <div id="cloud-status-dot" style="width:8px;height:8px;border-radius:50%;background:var(--sub);flex-shrink:0;"></div>
+              <span id="cloud-status-text" style="font-size:13px;color:var(--sub);">未同步</span>
+              <span id="cloud-gist-link-wrap" style="font-size:12px;"></span>
+            </div>
+            <div id="cloud-last-sync" style="font-size:11px;color:var(--sub);margin-bottom:10px;"></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn btn-primary" onclick="cloudPush()" style="padding:6px 12px;font-size:12px;">⬆ 上传</button>
+              <button class="btn btn-ghost" onclick="cloudPull()" style="padding:6px 12px;font-size:12px;">⬇ 下载</button>
+              <button class="btn btn-ghost" onclick="cloudAutoSync()" style="padding:6px 12px;font-size:12px;">🔄 自动</button>
+              <button class="btn btn-danger" onclick="cloudDisconnect()" style="padding:6px 12px;font-size:12px;">断开</button>
+            </div>
+            <div style="margin-top:8px;font-size:11px;color:var(--sub);">Gist：<span id="cloud-gist-id-display" style="color:var(--text);font-family:monospace;font-size:10px;"></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </header>
 
 <!-- ======== 主体 ======== -->
 <main>
 
-  <!-- 核心倒计时卡片 -->
-  <div class="card">
-    <div class="timer-hero">
-      <div id="season-badge" class="season-badge season-summer">☀ 夏季工时</div>
-      <div id="countdown" class="countdown-display normal">--:--:--</div>
-      <div class="countdown-sub" id="countdown-sub">
-        <span id="off-label"></span>
-        <span id="overtime-display" style="display:none;margin-left:16px;color:var(--red);">加班：<span id="overtime-duration">0分0秒</span></span>
+  <!-- ====== 左栏：日历 + 历史记录（次要内容） ====== -->
+  <div class="col-left" id="col-left">
+
+    <!-- 日历（可调高度） -->
+    <div class="resizable-card" id="rc-calendar" style="height:320px;">
+      <div class="calendar-card" style="height:100%;overflow:hidden;">
+        <div class="calendar-header">
+          <button class="calendar-nav-btn" onclick="changeMonth(-1)">◀</button>
+          <div class="calendar-title" id="calendar-title"></div>
+          <button class="calendar-nav-btn" onclick="changeMonth(1)">▶</button>
+        </div>
+        <div class="calendar-grid" style="flex-shrink:0;">
+          <div class="calendar-day-header">日</div>
+          <div class="calendar-day-header">一</div>
+          <div class="calendar-day-header">二</div>
+          <div class="calendar-day-header">三</div>
+          <div class="calendar-day-header">四</div>
+          <div class="calendar-day-header">五</div>
+          <div class="calendar-day-header">六</div>
+        </div>
+        <div class="calendar-grid" id="calendar-days" style="flex:1;align-content:start;overflow:hidden;"></div>
+        <div style="margin-top:8px;font-size:11px;color:var(--sub);flex-shrink:0;">
+          <span style="color:var(--yellow);">■</span> 拍摄日
+          <span style="margin-left:10px;color:var(--accent);">■</span> 有记录
+          <span style="margin-left:10px;color:var(--green);">■</span> 今天
+        </div>
       </div>
-      <div class="progress-bar-wrap">
-        <div class="progress-bar" id="progress-bar" style="width:0%"></div>
-      </div>
+      <div class="card-resize-handle" data-target="rc-calendar"></div>
     </div>
-  </div>
 
-  <!-- 下班按钮 -->
-  <div id="clock-out-container" class="card" style="display:none;">
-    <div style="text-align:center;padding:20px;">
-      <div style="font-size:18px;color:var(--text);margin-bottom:16px;">
-        🎉 下班时间已到，是否继续加班？
-      </div>
-      <div style="display:flex;gap:12px;justify-content:center;">
-        <button class="btn btn-red" onclick="clockOut()">下班啦 🚪</button>
-        <button class="btn btn-yellow" onclick="continueWorking()">继续加班 🔥</button>
-      </div>
-      <div id="overtime-timer" style="margin-top:20px;font-size:24px;color:var(--red);display:none;">
-        加班时长：<span id="overtime-live">0:00:00</span>
-      </div>
-    </div>
-  </div>
-
-  <!-- 时间信息卡片 -->
-  <div class="time-row">
-    <div class="time-item">
-      <div class="time-item-label">🖥 开机时间</div>
-      <div class="time-item-val" id="disp-boot">--:--</div>
-      <div class="time-item-sub" id="disp-boot-sub">自动获取</div>
-    </div>
-    <div class="time-item">
-      <div class="time-item-label">⏰ 应下班时间</div>
-      <div class="time-item-val" id="disp-off">--:--</div>
-      <div class="time-item-sub" id="disp-duration"></div>
-    </div>
-    <div class="time-item">
-      <div class="time-item-label">🕐 当前时间</div>
-      <div class="time-item-val" id="disp-now">--:--</div>
-      <div class="time-item-sub">实时</div>
-    </div>
-    <div class="time-item">
-      <div class="time-item-label">📅 本月记录</div>
-      <div class="time-item-val" id="disp-month">0</div>
-      <div class="time-item-sub">天</div>
-    </div>
-  </div>
-
-  <!-- 手动调整卡片 -->
-  <div class="card">
-    <div class="section-title">手动调整开机时间</div>
-    <div class="adjust-row">
-      <label>今日开机时间：</label>
-      <input type="time" id="boot-input" class="time-input" step="60">
-      <button class="btn btn-primary" onclick="applyBootTime()">✓ 应用</button>
-      <button class="btn btn-ghost" onclick="resetBootTime()">↺ 自动获取</button>
-      <span class="save-hint" id="save-hint"></span>
-    </div>
-  </div>
-
-  <!-- 当月日历 -->
-  <div class="calendar-card">
-    <div class="calendar-header">
-      <button class="calendar-nav-btn" onclick="changeMonth(-1)">◀ 上月</button>
-      <div class="calendar-title" id="calendar-title"></div>
-      <button class="calendar-nav-btn" onclick="changeMonth(1)">下月 ▶</button>
-    </div>
-    <div class="calendar-grid">
-      <div class="calendar-day-header">日</div>
-      <div class="calendar-day-header">一</div>
-      <div class="calendar-day-header">二</div>
-      <div class="calendar-day-header">三</div>
-      <div class="calendar-day-header">四</div>
-      <div class="calendar-day-header">五</div>
-      <div class="calendar-day-header">六</div>
-    </div>
-    <div class="calendar-grid" id="calendar-days"></div>
-    <div style="margin-top:16px;font-size:12px;color:var(--sub);">
-      <span style="color:var(--yellow);">■</span> 拍摄日
-      <span style="margin-left:20px;color:var(--accent);">■</span> 有工作记录
-      <span style="margin-left:20px;color:var(--green);">■</span> 今天
-    </div>
-  </div>
-
-  <!-- 统计 -->
-  <div class="stats-row">
-    <div class="stat-card stat-blue">
-      <div class="stat-val" id="stat-total">0</div>
-      <div class="stat-label">累计记录天数</div>
-    </div>
-    <div class="stat-card stat-green">
-      <div class="stat-val" id="stat-avg">--</div>
-      <div class="stat-label">平均开机时间</div>
-    </div>
-    <div class="stat-card stat-yellow">
-      <div class="stat-val" id="stat-earliest">--</div>
-      <div class="stat-label">最早开机</div>
-    </div>
-    <div class="stat-card" style="--sv-color:var(--accent2)">
-      <div class="stat-val" style="color:var(--accent2)" id="stat-latest">--</div>
-      <div class="stat-label">最晚开机</div>
-    </div>
-  </div>
-
-  <!-- 历史记录 -->
-  <div class="card">
-    <div class="history-toolbar">
-      <div class="section-title" style="margin-bottom:0;flex:1">历史记录</div>
-      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-        <input type="month" id="filter-month" class="time-input" style="width:150px;" onchange="renderHistory()">
-        <div class="export-btn-wrap">
-          <button class="btn btn-green" onclick="toggleExport()">⬇ 导出</button>
-          <div class="export-dropdown" id="export-dropdown">
-            <button onclick="exportWeekly()">📊 WorkList-W（周总结）</button>
-            <button onclick="exportAllWorkTime()">⏰ WorkTime（全部工时）</button>
-            <button onclick="exportMonthly()">📅 WorkList-M（月总结）</button>
+    <!-- 历史记录（撑满剩余高度） -->
+    <div class="history-resizable" id="rc-history" style="flex:1;min-height:120px;display:flex;flex-direction:column;overflow:hidden;">
+      <div class="card" style="flex:1;min-height:0;padding:14px 14px;display:flex;flex-direction:column;overflow:hidden;">
+        <div class="history-toolbar">
+          <div class="section-title" style="margin-bottom:0;flex:1">历史记录</div>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            <input type="month" id="filter-month" class="time-input" style="width:126px;font-size:13px;padding:6px 8px;" onchange="renderHistory()">
+            <div class="export-btn-wrap">
+              <button class="btn btn-green" onclick="toggleExport()" style="padding:6px 10px;font-size:12px;">⬇ 导出</button>
+              <div class="export-dropdown" id="export-dropdown">
+                <button onclick="exportWeekly()">📊 WorkList-W（周总结）</button>
+                <button onclick="exportAllWorkTime()">⏰ WorkTime（全部工时）</button>
+                <button onclick="exportMonthly()">📅 WorkList-M（月总结）</button>
+              </div>
+            </div>
+            <button class="btn btn-ghost" onclick="addTodayManual()" style="padding:6px 10px;font-size:12px;">+ 今日</button>
           </div>
         </div>
-        <button class="btn btn-ghost" onclick="addTodayManual()">+ 手动添加今日</button>
-      </div>
-    </div>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>日期</th>
-            <th>星期</th>
-            <th>开机时间</th>
-            <th>应下班</th>
-            <th>季节</th>
-            <th>工时</th>
-            <th>备注</th>
-            <th>操作</th>
-          </tr>
-        </thead>
-        <tbody id="history-tbody"></tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- 拍摄项目管理 -->
-  <div class="project-card">
-    <div class="section-title">🎬 拍摄项目</div>
-    <div class="project-form">
-      <input type="text" id="shooting-title-input" class="project-input" placeholder="视频标题">
-      <input type="date" id="shooting-date-input" class="project-input" style="width:160px;">
-      <button class="btn btn-primary" onclick="addShootingProjectFromUI()">+ 添加</button>
-    </div>
-
-    <!-- 批量拖放区 -->
-    <div id="shooting-dropzone"
-         ondragover="shootingDropzoneOver(event)"
-         ondragleave="shootingDropzoneLeave(event)"
-         ondrop="shootingDropzoneDrop(event)"
-         style="
-           margin-top:12px;
-           border:2px dashed var(--border);
-           border-radius:10px;
-           padding:18px 16px;
-           text-align:center;
-           color:var(--sub);
-           font-size:13px;
-           cursor:default;
-           transition:border-color .2s, background .2s;
-           user-select:none;
-         ">
-      📂 拖入脚本文件（可多选），自动提取文件名作为视频标题
-    </div>
-
-    <div class="project-list" id="shooting-projects-list"></div>
-  </div>
-
-  <!-- 批量导入预览弹窗 -->
-  <div id="batch-import-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:999;display:none;align-items:center;justify-content:center;">
-    <div style="background:var(--card);border-radius:var(--radius);padding:28px;width:min(560px,92vw);max-height:80vh;display:flex;flex-direction:column;gap:16px;box-shadow:var(--shadow);">
-      <div style="font-size:16px;font-weight:600;">批量添加拍摄项目</div>
-
-      <!-- 日期选择 -->
-      <div style="display:flex;align-items:center;gap:10px;font-size:13px;">
-        <span style="color:var(--sub);white-space:nowrap;">统一拍摄日期：</span>
-        <input type="date" id="batch-date-input" class="setting-input" style="width:160px;">
-        <span style="font-size:12px;color:var(--sub);">（可为每条单独修改）</span>
-      </div>
-
-      <!-- 标题列表 -->
-      <div id="batch-title-list" style="overflow-y:auto;max-height:340px;display:flex;flex-direction:column;gap:8px;"></div>
-
-      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px;">
-        <button class="btn btn-ghost" onclick="batchImportCancel()">取消</button>
-        <button class="btn btn-primary" onclick="batchImportConfirm()">✓ 全部添加</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- 剪辑项目管理 -->
-  <div class="project-card">
-    <div class="section-title">✂️ 剪辑项目</div>
-    <div class="project-form">
-      <input type="text" id="editing-title-input" class="project-input" placeholder="视频标题">
-      <input type="date" id="editing-date-input" class="project-input" style="width:160px;">
-      <button class="btn btn-primary" onclick="addEditingProjectFromUI()">+ 添加</button>
-    </div>
-    <div class="project-list" id="editing-projects-list"></div>
-  </div>
-
-  <!-- 设置 -->
-  <div class="card">
-    <div class="section-title">设置</div>
-    <div class="settings-grid">
-      <div class="setting-item">
-        <label>夏季月份范围（开始月）</label>
-        <input type="number" id="set-summer-start" class="setting-input" min="1" max="12" value="4" onchange="saveSettings()">
-      </div>
-      <div class="setting-item">
-        <label>夏季月份范围（结束月）</label>
-        <input type="number" id="set-summer-end" class="setting-input" min="1" max="12" value="10" onchange="saveSettings()">
-      </div>
-      <div class="setting-item">
-        <label>夏季工时（分钟）</label>
-        <input type="number" id="set-summer-min" class="setting-input" min="60" max="720" value="530" onchange="saveSettings()">
-      </div>
-      <div class="setting-item">
-        <label>冬季工时（分钟）</label>
-        <input type="number" id="set-winter-min" class="setting-input" min="60" max="720" value="500" onchange="saveSettings()">
-      </div>
-    </div>
-    <div style="margin-top:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-      <button class="btn btn-primary" onclick="exportData()">📤 导出数据</button>
-      <button class="btn btn-ghost"   onclick="document.getElementById('import-file-input').click()">📥 导入数据</button>
-      <button class="btn btn-ghost"   onclick="clearAllData()">🗑 清除所有数据</button>
-      <span style="font-size:12px;color:var(--sub)">数据保存在本地浏览器存储中</span>
-    </div>
-    <!-- 隐藏的文件选择器 -->
-    <input type="file" id="import-file-input" accept=".json" style="display:none" onchange="importData(event)">
-  </div>
-
-
-  <!-- 云端同步 -->
-  <div class="card" id="cloud-sync-card">
-    <div class="section-title">☁ 云端同步</div>
-
-    <!-- 未配置状态 -->
-    <div id="cloud-unconfigured">
-      <p style="font-size:14px;color:var(--sub);margin-bottom:16px;line-height:1.7;">
-        通过 <strong style="color:var(--text)">GitHub Gist</strong> 将数据同步到云端，可跨设备使用。<br>
-        需要一个 GitHub Personal Access Token（需要 <code style="color:var(--accent)">gist</code> 权限）。
-      </p>
-      <div style="display:flex;flex-direction:column;gap:12px;max-width:560px;">
-        <div class="setting-item">
-          <label>GitHub Personal Access Token</label>
-          <input type="password" id="cloud-token-input" class="setting-input"
-                 placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
-        </div>
-        <div class="setting-item">
-          <label>Gist ID（留空则自动创建新 Gist）</label>
-          <input type="text" id="cloud-gist-id-input" class="setting-input"
-                 placeholder="留空自动创建，或粘贴已有 Gist ID">
-        </div>
-        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-          <button class="btn btn-primary" onclick="cloudConnect()">🔗 连接云端</button>
-          <a href="https://github.com/settings/tokens/new?scopes=gist&description=WorkTimer" target="_blank"
-             style="font-size:13px;color:var(--accent);text-decoration:none;">
-            → 生成 Token
-          </a>
+        <div class="table-wrap" style="flex:1;overflow:auto;">
+          <table style="font-size:13px;">
+            <thead>
+              <tr>
+                <th>日期</th>
+                <th>星期</th>
+                <th>开机</th>
+                <th>下班</th>
+                <th>工时</th>
+                <th>备注</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="history-tbody"></tbody>
+          </table>
         </div>
       </div>
     </div>
 
-    <!-- 已配置状态 -->
-    <div id="cloud-configured" style="display:none;">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
-        <div id="cloud-status-dot" style="width:10px;height:10px;border-radius:50%;background:var(--sub);flex-shrink:0;"></div>
-        <span id="cloud-status-text" style="font-size:14px;color:var(--sub);">未同步</span>
-        <span id="cloud-gist-link-wrap" style="font-size:12px;"></span>
+  </div><!-- /col-left -->
+
+  <!-- 列分隔条：左/中 -->
+  <div class="col-divider" id="divider-left-mid"></div>
+
+  <!-- ====== 中栏：倒计时 + 开关机时间 + 时间设置（核心功能） ====== -->
+  <div class="col-mid" id="col-mid">
+
+    <!-- 倒计时卡片（撑满剩余高度） -->
+    <div class="resizable-card" id="rc-countdown">
+      <div class="card" style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+        <div class="timer-hero">
+          <div id="season-badge" class="season-badge season-summer">☀ 夏季工时</div>
+          <div id="countdown" class="countdown-display normal">--:--:--</div>
+          <div class="countdown-sub" id="countdown-sub">
+            <span id="off-label"></span>
+            <span id="overtime-display" style="display:none;margin-left:16px;color:var(--red);">加班：<span id="overtime-duration">0分0秒</span></span>
+          </div>
+          <div class="progress-bar-wrap">
+            <div class="progress-bar" id="progress-bar" style="width:0%"></div>
+          </div>
+        </div>
       </div>
-      <div id="cloud-last-sync" style="font-size:12px;color:var(--sub);margin-bottom:16px;"></div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;">
-        <button class="btn btn-primary" onclick="cloudPush()">⬆ 上传到云端</button>
-        <button class="btn btn-ghost"   onclick="cloudPull()">⬇ 从云端下载</button>
-        <button class="btn btn-ghost"   onclick="cloudAutoSync()">🔄 自动同步</button>
-        <button class="btn btn-danger"  onclick="cloudDisconnect()">断开连接</button>
-      </div>
-      <div style="margin-top:12px;font-size:12px;color:var(--sub);">
-        Gist ID：<span id="cloud-gist-id-display" style="color:var(--text);font-family:monospace;"></span>
+      <div class="card-resize-handle" data-target="rc-countdown"></div>
+    </div>
+
+    <!-- 下班按钮（仅时间到才显示）-->
+    <div id="clock-out-container" class="card" style="display:none;flex-shrink:0;">
+      <div style="text-align:center;padding:10px;">
+        <div style="font-size:15px;color:var(--text);margin-bottom:12px;">🎉 下班时间已到，是否继续加班？</div>
+        <div style="display:flex;gap:10px;justify-content:center;">
+          <button class="btn btn-red" onclick="clockOut()">下班啦 🚪</button>
+          <button class="btn btn-yellow" onclick="continueWorking()">继续加班 🔥</button>
+        </div>
+        <div id="overtime-timer" style="margin-top:14px;font-size:20px;color:var(--red);display:none;">
+          加班时长：<span id="overtime-live">0:00:00</span>
+        </div>
       </div>
     </div>
-  </div>
+
+    <!-- 时间信息行（可调高度） -->
+    <div class="resizable-card" id="rc-timerow" style="height:180px;">
+      <div class="time-row" style="height:100%;">
+        <div class="time-item">
+          <div class="time-item-label">🖥 开机时间</div>
+          <div class="time-item-val" id="disp-boot">--:--</div>
+          <div class="time-item-sub" id="disp-boot-sub">自动获取</div>
+        </div>
+        <div class="time-item">
+          <div class="time-item-label">⏰ 应下班</div>
+          <div class="time-item-val" id="disp-off">--:--</div>
+          <div class="time-item-sub" id="disp-duration"></div>
+        </div>
+        <div class="time-item">
+          <div class="time-item-label">🕐 当前时间</div>
+          <div class="time-item-val" id="disp-now">--:--</div>
+          <div class="time-item-sub">实时</div>
+        </div>
+        <div class="time-item">
+          <div class="time-item-label">📅 本月记录</div>
+          <div class="time-item-val" id="disp-month">0</div>
+          <div class="time-item-sub">天</div>
+        </div>
+      </div>
+      <div class="card-resize-handle" data-target="rc-timerow"></div>
+    </div>
+
+    <!-- 手动调整开机时间 -->
+    <div class="card" style="flex-shrink:0;">
+      <div class="section-title">手动调整开机时间</div>
+      <div class="adjust-row">
+        <label>开机：</label>
+        <input type="time" id="boot-input" class="time-input" step="60">
+        <button class="btn btn-primary" onclick="applyBootTime()">✓ 应用</button>
+        <button class="btn btn-ghost" onclick="resetBootTime()">↺ 自动</button>
+        <span class="save-hint" id="save-hint"></span>
+      </div>
+    </div>
+
+    <!-- 统计（2×2 两行）-->
+    <div class="stats-row" style="flex-shrink:0;padding-bottom:6px;">
+      <div class="stat-card stat-blue">
+        <div class="stat-val" id="stat-total">0</div>
+        <div class="stat-label">累计天数</div>
+      </div>
+      <div class="stat-card stat-green">
+        <div class="stat-val" id="stat-avg">--</div>
+        <div class="stat-label">均开机</div>
+      </div>
+      <div class="stat-card stat-yellow">
+        <div class="stat-val" id="stat-earliest">--</div>
+        <div class="stat-label">最早</div>
+      </div>
+      <div class="stat-card" style="--sv-color:var(--accent2)">
+        <div class="stat-val" style="color:var(--accent2)" id="stat-latest">--</div>
+        <div class="stat-label">最晚</div>
+      </div>
+    </div>
+
+  </div><!-- /col-mid -->
+
+  <!-- 列分隔条：中/右 -->
+  <div class="col-divider" id="divider-mid-right"></div>
+
+  <!-- ====== 右栏：拍摄项目 + 剪辑项目 ====== -->
+  <div class="col-right" id="col-right">
+
+    <!-- 拍摄项目（可调高度） -->
+    <div class="resizable-card" id="rc-shooting" style="flex:1;min-height:120px;">
+      <div class="project-card" style="height:100%;">
+        <div class="section-title">🎬 拍摄项目</div>
+        <div class="project-form">
+          <input type="text" id="shooting-title-input" class="project-input" placeholder="视频标题">
+          <input type="date" id="shooting-date-input" class="project-input" style="width:130px;flex:0 0 auto;">
+          <button class="btn btn-primary" onclick="addShootingProjectFromUI()" style="padding:7px 10px;font-size:13px;">+ 添加</button>
+        </div>
+        <div id="shooting-dropzone"
+             ondragover="shootingDropzoneOver(event)"
+             ondragleave="shootingDropzoneLeave(event)"
+             ondrop="shootingDropzoneDrop(event)"
+             style="border:2px dashed var(--border);border-radius:8px;padding:8px 12px;text-align:center;color:var(--sub);font-size:12px;cursor:default;transition:border-color .2s,background .2s;user-select:none;margin-bottom:8px;flex-shrink:0;">
+          📂 拖入脚本文件批量提取文件名
+        </div>
+        <div class="project-list" id="shooting-projects-list"></div>
+      </div>
+      <div class="card-resize-handle" data-target="rc-shooting"></div>
+    </div>
+
+    <!-- 剪辑项目（可调高度） -->
+    <div class="resizable-card" id="rc-editing" style="flex:1;min-height:120px;">
+      <div class="project-card" style="height:100%;">
+        <div class="section-title">✂️ 剪辑项目</div>
+        <div class="project-form">
+          <input type="text" id="editing-title-input" class="project-input" placeholder="视频标题">
+          <input type="date" id="editing-date-input" class="project-input" style="width:130px;flex:0 0 auto;">
+          <button class="btn btn-primary" onclick="addEditingProjectFromUI()" style="padding:7px 10px;font-size:13px;">+ 添加</button>
+        </div>
+        <div class="project-list" id="editing-projects-list"></div>
+      </div>
+      <div class="card-resize-handle" data-target="rc-editing"></div>
+    </div>
+
+  </div><!-- /col-right -->
+
+  <div class="col-bottom" style="display:none;"></div>
 
 </main>
 
 <!-- Toast 容器 -->
 <div id="toast-area"></div>
 
+<!-- 批量导入预览弹窗 -->
+<div id="batch-import-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:999;align-items:center;justify-content:center;">
+  <div style="background:var(--card);border-radius:var(--radius);padding:24px;width:min(520px,92vw);max-height:80vh;display:flex;flex-direction:column;gap:14px;box-shadow:var(--shadow);">
+    <div style="font-size:15px;font-weight:600;">批量添加拍摄项目</div>
+    <div style="display:flex;align-items:center;gap:10px;font-size:13px;">
+      <span style="color:var(--sub);white-space:nowrap;">统一拍摄日期：</span>
+      <input type="date" id="batch-date-input" class="setting-input" style="width:160px;">
+      <span style="font-size:12px;color:var(--sub);">（可单独修改）</span>
+    </div>
+    <div id="batch-title-list" style="overflow-y:auto;max-height:340px;display:flex;flex-direction:column;gap:8px;"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button class="btn btn-ghost" onclick="batchImportCancel()">取消</button>
+      <button class="btn btn-primary" onclick="batchImportConfirm()">✓ 全部添加</button>
+    </div>
+  </div>
+</div>
+
 <script>
+// ============================================================
+// 列宽拖拽（左/中 及 中/右 均可拖拽）
+// ============================================================
+(function initColResize() {
+  function setupColDivider(dividerId, leftColId, rightColId, minL, minR) {
+    const divider = document.getElementById(dividerId);
+    const leftCol  = document.getElementById(leftColId);
+    const rightCol = document.getElementById(rightColId);
+    if (!divider || !leftCol || !rightCol) return;
+
+    let startX, startLeftW, startRightW;
+
+    divider.addEventListener('mousedown', function(e) {
+      e.preventDefault();
+      startX      = e.clientX;
+      startLeftW  = leftCol.getBoundingClientRect().width;
+      startRightW = rightCol.getBoundingClientRect().width;
+      divider.classList.add('dragging');
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+
+      function onMove(e) {
+        const dx   = e.clientX - startX;
+        const newL = Math.max(minL, startLeftW + dx);
+        const newR = Math.max(minR, startRightW - dx);
+        // 防止两侧同时超出最小值
+        if (newL === minL || newR === minR) return;
+        leftCol.style.flex  = 'none';
+        rightCol.style.flex = 'none';
+        leftCol.style.width  = newL + 'px';
+        rightCol.style.width = newR + 'px';
+      }
+      function onUp() {
+        divider.classList.remove('dragging');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        if (typeof saveLayout === 'function') saveLayout();
+      }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    // 左栏/中栏分隔条（左栏最小 180px，中栏最小 260px）
+    setupColDivider('divider-left-mid', 'col-left', 'col-mid', 180, 260);
+    // 中栏/右栏分隔条（中栏最小 260px，右栏最小 260px）
+    setupColDivider('divider-mid-right', 'col-mid', 'col-right', 260, 260);
+  });
+})();
+
+// ============================================================
+// 卡片行高拖拽（绝对定位把手，拖拽时改自身高度）
+// ============================================================
+(function initRowResize() {
+  document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.card-resize-handle').forEach(function(handle) {
+      const targetId = handle.dataset.target;
+      const target   = document.getElementById(targetId);
+      if (!target) return;
+
+      let startY, startH;
+
+      handle.addEventListener('mousedown', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        startY = e.clientY;
+        startH = target.getBoundingClientRect().height;
+        if (startH < 10) startH = 200; // 兜底：flex:1撑满时可能返回0
+        // 固定当前高度，脱离 flex 伸缩（用 setProperty 覆盖 !important）
+        target.style.setProperty('flex', 'none', 'important');
+        target.style.setProperty('height', startH + 'px', 'important');
+        handle.classList.add('dragging');
+        document.body.style.cursor = 'row-resize';
+        document.body.style.userSelect = 'none';
+
+        function onMove(e) {
+          const dy   = e.clientY - startY;
+          const newH = Math.max(60, startH + dy);
+          target.style.setProperty('height', newH + 'px', 'important');
+        }
+        function onUp() {
+          handle.classList.remove('dragging');
+          document.body.style.cursor = '';
+          document.body.style.userSelect = '';
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup', onUp);
+          if (typeof saveLayout === 'function') saveLayout();
+        }
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+      });
+    });
+  });
+})();
+
+// ============================================================
+// 倒计时字号自适应（= 中栏宽度 × 75% ÷ 8字符，含上下限）
+// ============================================================
+(function initCountdownFontResize() {
+  const colMid = document.getElementById('col-mid');
+  const display = document.getElementById('countdown');
+  if (!colMid || !display) return;
+
+  function updateSize() {
+    const W = colMid.getBoundingClientRect().width;
+    if (!W) return;
+    // "00:00:00" = 8字符，字体等宽，粗略字宽约0.6em
+    // 目标：文字渲染宽度 ≈ 容器宽度 × 0.75
+    // fontSize × 8 × 0.6 ≈ W × 0.75  →  fontSize = W × 0.75 / 4.8
+    const fs = Math.min(Math.max(W * 0.75 / 4.8, 36), 120);
+    display.style.fontSize = fs.toFixed(1) + 'px';
+  }
+
+  if (window.ResizeObserver) {
+    new ResizeObserver(updateSize).observe(colMid);
+  } else {
+    window.addEventListener('resize', updateSize);
+  }
+  document.addEventListener('DOMContentLoaded', updateSize);
+  // 拖拽列宽时也触发（延迟一帧确保宽度已更新）
+  document.addEventListener('mousemove', function() {
+    requestAnimationFrame(updateSize);
+  });
+})();
+
+// ============================================================
+// 设置面板控制
+// ============================================================
+function toggleSettingsPanel() {
+  const panel = document.getElementById('settings-panel');
+  panel.classList.toggle('show');
+}
+function switchSpTab(name, btn) {
+  document.querySelectorAll('.sp-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.sp-pane').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('sp-pane-' + name).classList.add('active');
+}
+// 点击外部关闭设置面板
+document.addEventListener('click', function(e) {
+  const wrap = document.getElementById('settings-btn-wrap');
+  if (wrap && !wrap.contains(e.target)) {
+    document.getElementById('settings-panel').classList.remove('show');
+  }
+});
+
 // ============================================================
 // 数据层
 // ============================================================
@@ -974,6 +1409,50 @@ const SETTINGS_KEY = 'worktimer_settings_v2';
 const BOOT_OVERRIDE_KEY = 'worktimer_boot_override';
 const SHOOTING_KEY = 'worktimer_shooting_v2';
 const EDITING_KEY = 'worktimer_editing_v2';
+const LAYOUT_KEY  = 'worktimer_layout_v1';  // 布局状态（列宽+行高）
+
+// 保存当前布局到 localStorage
+function saveLayout() {
+  const layout = {};
+  // 列宽
+  ['col-left','col-mid','col-right'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) layout[id] = Math.round(el.getBoundingClientRect().width);
+  });
+  // 各 resizable-card 高度
+  ['rc-calendar','rc-countdown','rc-timerow','rc-shooting','rc-editing'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      const h = el.getBoundingClientRect().height;
+      if (h > 10) layout[id] = Math.round(h);
+    }
+  });
+  localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout));
+}
+
+// 从 localStorage 恢复布局
+function restoreLayout() {
+  try {
+    const layout = JSON.parse(localStorage.getItem(LAYOUT_KEY));
+    if (!layout) return;
+    // 恢复列宽（仅宽度有效时）
+    ['col-left','col-mid','col-right'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el && layout[id] > 50) {
+        el.style.setProperty('width', layout[id] + 'px', 'important');
+        el.style.setProperty('flex', 'none', 'important');
+      }
+    });
+    // 恢复行高
+    ['rc-calendar','rc-countdown','rc-timerow','rc-shooting','rc-editing'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el && layout[id] > 10) {
+        el.style.setProperty('flex',   'none',             'important');
+        el.style.setProperty('height', layout[id] + 'px', 'important');
+      }
+    });
+  } catch(e) {}
+}
 
 function loadSettings() {
   try { return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}; } catch { return {}; }
@@ -1914,7 +2393,7 @@ function renderHistory() {
 
   const tbody = document.getElementById('history-tbody');
   if (recs.length === 0) {
-    tbody.innerHTML = '<tr class="empty-row"><td colspan="8">暂无记录</td></tr>';
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="7">暂无记录</td></tr>';
     return;
   }
 
@@ -1923,14 +2402,15 @@ function renderHistory() {
     const isToday = r.date === today;
     const dateClass = isToday ? 'tag-today' : '';
     const seasonClass = r.season === '夏季' ? 'tag-summer' : 'tag-winter';
+    // 季节用小图标显示在工时列前，节省列宽
+    const seasonIcon = r.season === '夏季' ? '<span class="tag-summer" title="夏季">☀</span>' : '<span style="color:#63b3ed;" title="冬季">❄</span>';
     return `
     <tr>
-      <td class="${dateClass}">${r.date}${isToday ? ' 今' : ''}</td>
+      <td class="${dateClass}">${r.date}${isToday ? ' <span style="color:var(--green);font-size:11px;">今</span>' : ''}</td>
       <td>${r.weekday}</td>
       <td>${r.boot}${r.manual ? ' <span title="手动设置" style="color:var(--accent);font-size:11px;">手动</span>' : ''}</td>
       <td>${r.off}</td>
-      <td class="${seasonClass}">${r.season}</td>
-      <td>${r.duration}</td>
+      <td>${seasonIcon} ${r.duration}</td>
       <td><input class="note-input" value="${r.note||''}" placeholder="备注..." onblur="saveNote('${r.date}', this.value)" onchange="saveNote('${r.date}', this.value)"></td>
       <td>
         <button class="edit-btn" onclick="editBootTime('${r.date}','${r.boot}')" title="修改开机时间">✏</button>
@@ -2345,6 +2825,7 @@ function importData(event) {
       renderCalendar();
       renderShootingProjects();
       renderEditingProjects();
+      requestAnimationFrame(restoreLayout);
 
       const srcLabel = pkg._source ? `（来源：${pkg._source}）` : '';
       const exportDate = pkg._exported ? `，导出于 ${pkg._exported.slice(0,10)}` : '';
@@ -2366,7 +2847,7 @@ const GIST_API = 'https://api.github.com/gists';
 const GIST_FILENAME = 'worktimer_data.json';
 
 // 所有需要同步的数据 key
-const ALL_DATA_KEYS = [STORE_KEY, SETTINGS_KEY, SHOOTING_KEY, EDITING_KEY];
+const ALL_DATA_KEYS = [STORE_KEY, SETTINGS_KEY, SHOOTING_KEY, EDITING_KEY, LAYOUT_KEY];
 
 function cloudGetToken()  { return localStorage.getItem(CLOUD_TOKEN_KEY)  || ''; }
 function cloudGetGistId() { return localStorage.getItem(CLOUD_GIST_KEY)   || ''; }
@@ -2510,6 +2991,7 @@ async function cloudPull() {
     renderCalendar();
     renderShootingProjects();
     renderEditingProjects();
+    requestAnimationFrame(restoreLayout);
 
     const now = new Date().toLocaleString('zh-CN');
     localStorage.setItem(CLOUD_LASTSYNC_KEY, now);
@@ -2693,6 +3175,9 @@ function init() {
 
   // 初始化云端同步
   initCloud();
+
+  // 恢复上次保存的布局（列宽 + 行高）
+  requestAnimationFrame(restoreLayout);
 }
 
 // 页面加载完成后初始化
