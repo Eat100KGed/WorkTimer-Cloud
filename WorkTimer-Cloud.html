@@ -1727,77 +1727,97 @@ const SETTINGS_KEY = 'worktimer_settings_v2';
 const BOOT_OVERRIDE_KEY = 'worktimer_boot_override';
 const SHOOTING_KEY = 'worktimer_shooting_v2';
 const EDITING_KEY = 'worktimer_editing_v2';
-const LAYOUT_KEY  = 'worktimer_layout_v1';  // 布局状态（列宽+行高）
+const LAYOUT_KEY  = 'worktimer_layout_v2';  // 布局状态（列宽比例 + 行高比例）
 
-// 保存当前布局到 localStorage（含当前视口尺寸，用于后续按比例缩放）
+// 列宽最小值映射（px）
+const COL_MIN_W = { 'col-left': 180, 'col-mid': 260, 'col-right': 260 };
+// 行高最小值（px）
+const CARD_MIN_H = 60;
+
+// 获取 <main> 的内容宽度（不含 padding）
+function getMainContentWidth() {
+  const main = document.querySelector('main');
+  if (!main) return window.innerWidth;
+  const style = getComputedStyle(main);
+  return main.getBoundingClientRect().width
+    - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+}
+
+// 获取列元素的父容器可用高度（即 main 的内容高度）
+function getMainContentHeight() {
+  const main = document.querySelector('main');
+  if (!main) return window.innerHeight;
+  const style = getComputedStyle(main);
+  return main.getBoundingClientRect().height
+    - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
+}
+
+// 保存当前布局到 localStorage（存"比例"而非绝对 px）
 function saveLayout() {
-  const layout = {
-    _vw: window.innerWidth,
-    _vh: window.innerHeight,
-  };
-  // 列宽
+  const mainW = getMainContentWidth();
+  const mainH = getMainContentHeight();
+  const layout = { _mainW: mainW, _mainH: mainH };
+
+  // 列宽比例（相对 mainW）
   ['col-left','col-mid','col-right'].forEach(id => {
     const el = document.getElementById(id);
-    if (el) layout[id] = Math.round(el.getBoundingClientRect().width);
-  });
-  // 各 resizable-card 高度
-  ['rc-calendar','rc-stats','rc-countdown','rc-timerow','rc-shooting','rc-editing'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) {
-      const h = el.getBoundingClientRect().height;
-      if (h > 10) layout[id] = Math.round(h);
+    if (el && mainW > 0) {
+      const w = el.getBoundingClientRect().width;
+      layout[id + '_ratio'] = w / mainW;  // 0~1
     }
   });
+
+  // 各 resizable-card 高度比例（相对各自父列的 mainH）
+  ['rc-calendar','rc-stats','rc-countdown','rc-timerow','rc-shooting','rc-editing'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el && mainH > 0) {
+      const h = el.getBoundingClientRect().height;
+      if (h > 10) layout[id + '_ratio'] = h / mainH;  // 0~1
+    }
+  });
+
   localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout));
 }
 
-// 列宽最小值映射
-const COL_MIN_W = { 'col-left': 180, 'col-mid': 260, 'col-right': 260 };
-// 行高最小值
-const CARD_MIN_H = 60;
-
-// 从 localStorage 恢复布局，并按当前视口 vs 保存时视口的比例缩放
+// 从 localStorage 恢复布局，按当前 main 尺寸换算实际 px
 function restoreLayout() {
   try {
     const layout = JSON.parse(localStorage.getItem(LAYOUT_KEY));
     if (!layout) return;
 
-    // 计算缩放比例（若没有保存视口尺寸则默认比例 1）
-    const savedVW = layout._vw || window.innerWidth;
-    const savedVH = layout._vh || window.innerHeight;
-    const scaleW  = window.innerWidth  / savedVW;
-    const scaleH  = window.innerHeight / savedVH;
+    const mainW = getMainContentWidth();
+    const mainH = getMainContentHeight();
 
-    // 恢复列宽（按宽度比例缩放，并夹紧最小值）
+    // 恢复列宽
     ['col-left','col-mid','col-right'].forEach(id => {
       const el = document.getElementById(id);
-      if (el && layout[id] > 50) {
-        const scaled = Math.max(COL_MIN_W[id] || 180, Math.round(layout[id] * scaleW));
-        el.style.setProperty('width', scaled + 'px', 'important');
-        el.style.setProperty('flex', 'none', 'important');
+      const ratio = layout[id + '_ratio'];
+      if (el && ratio > 0) {
+        const px = Math.max(COL_MIN_W[id] || 180, Math.round(mainW * ratio));
+        el.style.setProperty('width', px + 'px', 'important');
+        el.style.setProperty('flex',  'none',     'important');
       }
     });
 
-    // 恢复行高（按高度比例缩放，并夹紧最小值）
+    // 恢复行高
     ['rc-calendar','rc-stats','rc-countdown','rc-timerow','rc-shooting','rc-editing'].forEach(id => {
       const el = document.getElementById(id);
-      if (el && layout[id] > 10) {
-        const scaled = Math.max(CARD_MIN_H, Math.round(layout[id] * scaleH));
-        el.style.setProperty('flex',   'none',           'important');
-        el.style.setProperty('height', scaled + 'px',    'important');
+      const ratio = layout[id + '_ratio'];
+      if (el && ratio > 0) {
+        const px = Math.max(CARD_MIN_H, Math.round(mainH * ratio));
+        el.style.setProperty('flex',   'none',       'important');
+        el.style.setProperty('height', px + 'px',    'important');
       }
     });
   } catch(e) {}
 }
 
-// 窗口 resize 时，按比例重新应用布局（防抖 200ms）
+// 窗口 resize 时，重新按比例换算并应用布局（防抖 150ms）
 (function initResponsiveLayout() {
-  let _resizeTimer = null;
+  let _t = null;
   window.addEventListener('resize', function() {
-    clearTimeout(_resizeTimer);
-    _resizeTimer = setTimeout(function() {
-      restoreLayout();
-    }, 200);
+    clearTimeout(_t);
+    _t = setTimeout(restoreLayout, 150);
   });
 })();
 
