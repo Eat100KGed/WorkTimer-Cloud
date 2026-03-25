@@ -1293,6 +1293,10 @@
         document.removeEventListener('mouseup', onUp);
         if (typeof saveLayout === 'function') saveLayout();
       }
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  }
 
   document.addEventListener('DOMContentLoaded', function() {
     // 左栏/中栏分隔条（左栏最小 180px，中栏最小 260px）
