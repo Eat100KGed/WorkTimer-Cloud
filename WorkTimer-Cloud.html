@@ -289,12 +289,13 @@
     min-height: 0;
     overflow: hidden;
   }
-  .time-item-label { font-size:11px; color:var(--sub); margin-bottom:3px; letter-spacing:.3px; }
+  .time-item-label { font-size:11px; color:var(--sub); margin-bottom:2px; letter-spacing:.3px; }
   .time-item-val {
-    font-size: 26px;
+    font-size: 26px; /* JS ResizeObserver 动态覆盖 */
     font-weight: 700;
     font-variant-numeric: tabular-nums;
-    line-height: 1.1;
+    line-height: 1;
+    transition: font-size .12s ease;
   }
   .time-item-sub { font-size:10px; color:var(--sub); margin-top:2px; }
 
@@ -473,16 +474,20 @@
     gap: 8px;
   }
   .stat-card {
-    flex:1;
-    min-width:80px;
     background: var(--card2);
     border:1px solid var(--border);
     border-radius:10px;
-    padding:10px 12px;
+    padding:8px 10px;
     text-align:center;
+    min-height: 0;
+    overflow: hidden;
   }
-  .stat-val { font-size:22px; font-weight:800; }
-  .stat-label { font-size:11px; color:var(--sub); margin-top:3px; }
+  .stat-val {
+    font-size:22px; /* JS ResizeObserver动态覆盖 */
+    font-weight:800;
+    transition: font-size .12s ease;
+  }
+  .stat-label { font-size:11px; color:var(--sub); margin-top:2px; }
   .stat-blue .stat-val { color:var(--accent); }
   .stat-green .stat-val { color:var(--green); }
   .stat-yellow .stat-val { color:var(--yellow); }
@@ -1047,6 +1052,29 @@
       <div class="card-resize-handle" data-target="rc-calendar"></div>
     </div>
 
+    <!-- 统计（2×2，可调高度，位于日历和历史记录之间） -->
+    <div class="resizable-card" id="rc-stats" style="height:160px;">
+      <div class="stats-row" style="height:100%;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:6px;">
+        <div class="stat-card stat-blue" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:0;overflow:hidden;">
+          <div class="stat-val" id="stat-total">0</div>
+          <div class="stat-label">累计天数</div>
+        </div>
+        <div class="stat-card stat-green" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:0;overflow:hidden;">
+          <div class="stat-val" id="stat-avg">--</div>
+          <div class="stat-label">均开机</div>
+        </div>
+        <div class="stat-card stat-yellow" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:0;overflow:hidden;">
+          <div class="stat-val" id="stat-earliest">--</div>
+          <div class="stat-label">最早</div>
+        </div>
+        <div class="stat-card" style="--sv-color:var(--accent2);display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:0;overflow:hidden;">
+          <div class="stat-val" style="color:var(--accent2)" id="stat-latest">--</div>
+          <div class="stat-label">最晚</div>
+        </div>
+      </div>
+      <div class="card-resize-handle" data-target="rc-stats"></div>
+    </div>
+
     <!-- 历史记录（撑满剩余高度） -->
     <div class="history-resizable" id="rc-history" style="flex:1;min-height:120px;display:flex;flex-direction:column;overflow:hidden;">
       <div class="card" style="flex:1;min-height:0;padding:14px 14px;display:flex;flex-direction:column;overflow:hidden;">
@@ -1124,6 +1152,18 @@
       </div>
     </div>
 
+    <!-- 手动调整开机时间（位于倒计时与时间信息行之间） -->
+    <div class="card" style="flex-shrink:0;">
+      <div class="section-title">手动调整开机时间</div>
+      <div class="adjust-row">
+        <label>开机：</label>
+        <input type="time" id="boot-input" class="time-input" step="60">
+        <button class="btn btn-primary" onclick="applyBootTime()">✓ 应用</button>
+        <button class="btn btn-ghost" onclick="resetBootTime()">↺ 自动</button>
+        <span class="save-hint" id="save-hint"></span>
+      </div>
+    </div>
+
     <!-- 时间信息行（可调高度） -->
     <div class="resizable-card" id="rc-timerow" style="height:180px;">
       <div class="time-row" style="height:100%;">
@@ -1149,38 +1189,6 @@
         </div>
       </div>
       <div class="card-resize-handle" data-target="rc-timerow"></div>
-    </div>
-
-    <!-- 手动调整开机时间 -->
-    <div class="card" style="flex-shrink:0;">
-      <div class="section-title">手动调整开机时间</div>
-      <div class="adjust-row">
-        <label>开机：</label>
-        <input type="time" id="boot-input" class="time-input" step="60">
-        <button class="btn btn-primary" onclick="applyBootTime()">✓ 应用</button>
-        <button class="btn btn-ghost" onclick="resetBootTime()">↺ 自动</button>
-        <span class="save-hint" id="save-hint"></span>
-      </div>
-    </div>
-
-    <!-- 统计（2×2 两行）-->
-    <div class="stats-row" style="flex-shrink:0;padding-bottom:6px;">
-      <div class="stat-card stat-blue">
-        <div class="stat-val" id="stat-total">0</div>
-        <div class="stat-label">累计天数</div>
-      </div>
-      <div class="stat-card stat-green">
-        <div class="stat-val" id="stat-avg">--</div>
-        <div class="stat-label">均开机</div>
-      </div>
-      <div class="stat-card stat-yellow">
-        <div class="stat-val" id="stat-earliest">--</div>
-        <div class="stat-label">最早</div>
-      </div>
-      <div class="stat-card" style="--sv-color:var(--accent2)">
-        <div class="stat-val" style="color:var(--accent2)" id="stat-latest">--</div>
-        <div class="stat-label">最晚</div>
-      </div>
     </div>
 
   </div><!-- /col-mid -->
@@ -1390,6 +1398,58 @@
 })();
 
 // ============================================================
+// 时间信息行 4格 & 统计卡片 数字字号 = 框高 × 75% × 0.55（上下限保护）
+// 同一个工厂函数，传入容器ID + 值元素选择器
+// ============================================================
+(function initCardFontResize() {
+  /**
+   * @param {string} containerId  - 要监听尺寸的外层容器ID
+   * @param {string} valSelector  - 容器内所有"大数字"元素的CSS选择器
+   * @param {number} ratio        - 目标字号 / 单个格子高度 (0~1)
+   * @param {number} min          - 最小字号px
+   * @param {number} max          - 最大字号px
+   * @param {number} rowCount     - 格子行数（用于计算单格高度）
+   */
+  function setupResize(containerId, valSelector, ratio, min, max, rowCount) {
+    function setup() {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+
+      function update() {
+        const H = container.getBoundingClientRect().height;
+        if (!H) return;
+        // 单格高度 = 容器高度 / rowCount（grid等高）
+        const cellH = H / rowCount;
+        const fs = Math.min(Math.max(cellH * ratio, min), max);
+        container.querySelectorAll(valSelector).forEach(el => {
+          el.style.fontSize = fs.toFixed(1) + 'px';
+        });
+      }
+
+      if (window.ResizeObserver) {
+        new ResizeObserver(update).observe(container);
+      } else {
+        window.addEventListener('resize', update);
+      }
+      document.addEventListener('mousemove', () => requestAnimationFrame(update));
+      update();
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', setup);
+    } else {
+      setup();
+    }
+  }
+
+  // 时间信息行：rc-timerow，2行2列，单格高=总高/2，目标字号=单格高×0.42
+  setupResize('rc-timerow', '.time-item-val', 0.42, 14, 52, 2);
+
+  // 统计卡片：rc-stats，2行2列，单格高=总高/2，目标字号=单格高×0.42
+  setupResize('rc-stats', '.stat-val', 0.42, 14, 48, 2);
+})();
+
+// ============================================================
 // 设置面板控制
 // ============================================================
 function toggleSettingsPanel() {
@@ -1429,7 +1489,7 @@ function saveLayout() {
     if (el) layout[id] = Math.round(el.getBoundingClientRect().width);
   });
   // 各 resizable-card 高度
-  ['rc-calendar','rc-countdown','rc-timerow','rc-shooting','rc-editing'].forEach(id => {
+  ['rc-calendar','rc-stats','rc-countdown','rc-timerow','rc-shooting','rc-editing'].forEach(id => {
     const el = document.getElementById(id);
     if (el) {
       const h = el.getBoundingClientRect().height;
@@ -1453,7 +1513,7 @@ function restoreLayout() {
       }
     });
     // 恢复行高
-    ['rc-calendar','rc-countdown','rc-timerow','rc-shooting','rc-editing'].forEach(id => {
+    ['rc-calendar','rc-stats','rc-countdown','rc-timerow','rc-shooting','rc-editing'].forEach(id => {
       const el = document.getElementById(id);
       if (el && layout[id] > 10) {
         el.style.setProperty('flex',   'none',             'important');
