@@ -1354,30 +1354,38 @@
 // 倒计时字号自适应（= 中栏宽度 × 75% ÷ 8字符，含上下限）
 // ============================================================
 (function initCountdownFontResize() {
-  const colMid = document.getElementById('col-mid');
-  const display = document.getElementById('countdown');
-  if (!colMid || !display) return;
+  function setup() {
+    const colMid = document.getElementById('col-mid');
+    const display = document.getElementById('countdown');
+    if (!colMid || !display) return;
 
-  function updateSize() {
-    const W = colMid.getBoundingClientRect().width;
-    if (!W) return;
-    // "00:00:00" = 8字符，字体等宽，粗略字宽约0.6em
-    // 目标：文字渲染宽度 ≈ 容器宽度 × 0.75
-    // fontSize × 8 × 0.6 ≈ W × 0.75  →  fontSize = W × 0.75 / 4.8
-    const fs = Math.min(Math.max(W * 0.75 / 4.8, 36), 120);
-    display.style.fontSize = fs.toFixed(1) + 'px';
+    function updateSize() {
+      const W = colMid.getBoundingClientRect().width;
+      if (!W) return;
+      // "00:00:00" = 8字符，字体等宽，粗略字宽约0.6em
+      // 目标：文字渲染宽度 ≈ 容器宽度 × 0.75
+      // fontSize × 8 × 0.6 ≈ W × 0.75  →  fontSize = W × 0.75 / 4.8
+      const fs = Math.min(Math.max(W * 0.75 / 4.8, 36), 120);
+      display.style.fontSize = fs.toFixed(1) + 'px';
+    }
+
+    if (window.ResizeObserver) {
+      new ResizeObserver(updateSize).observe(colMid);
+    } else {
+      window.addEventListener('resize', updateSize);
+    }
+    // 拖拽列宽时也触发（延迟一帧确保宽度已更新）
+    document.addEventListener('mousemove', function() {
+      requestAnimationFrame(updateSize);
+    });
+    updateSize(); // 立即执行一次
   }
 
-  if (window.ResizeObserver) {
-    new ResizeObserver(updateSize).observe(colMid);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setup);
   } else {
-    window.addEventListener('resize', updateSize);
+    setup();
   }
-  document.addEventListener('DOMContentLoaded', updateSize);
-  // 拖拽列宽时也触发（延迟一帧确保宽度已更新）
-  document.addEventListener('mousemove', function() {
-    requestAnimationFrame(updateSize);
-  });
 })();
 
 // ============================================================
