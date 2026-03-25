@@ -1205,7 +1205,10 @@
     <!-- 拍摄项目（可调高度） -->
     <div class="resizable-card" id="rc-shooting" style="flex:1;min-height:120px;">
       <div class="project-card" style="height:100%;">
-        <div class="section-title">🎬 拍摄项目</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <div class="section-title" style="margin-bottom:0;">🎬 拍摄项目</div>
+          <button class="btn btn-ghost" style="padding:3px 9px;font-size:12px;" onclick="selectWorkDir()" title="选择文件夹创建工作目录">📁 工作目录</button>
+        </div>
         <div class="project-form">
           <input type="text" id="shooting-title-input" class="project-input" placeholder="视频标题">
           <input type="date" id="shooting-date-input" class="project-input" style="width:130px;flex:0 0 auto;">
@@ -1248,17 +1251,38 @@
 
 <!-- 批量导入预览弹窗 -->
 <div id="batch-import-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:999;align-items:center;justify-content:center;">
-  <div style="background:var(--card);border-radius:var(--radius);padding:24px;width:min(520px,92vw);max-height:80vh;display:flex;flex-direction:column;gap:14px;box-shadow:var(--shadow);">
+  <div style="background:var(--card);border-radius:var(--radius);padding:24px;width:min(680px,96vw);max-height:88vh;display:flex;flex-direction:column;gap:12px;box-shadow:var(--shadow);">
     <div style="font-size:15px;font-weight:600;">批量添加拍摄项目</div>
+
+    <!-- 工作目录选择行 -->
+    <div style="display:flex;align-items:center;gap:8px;font-size:13px;background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;">
+      <span style="color:var(--sub);white-space:nowrap;">📁 工作目录：</span>
+      <span id="workdir-name" style="flex:1;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;">未选择</span>
+      <button class="btn btn-ghost" style="padding:4px 10px;font-size:12px;flex-shrink:0;" onclick="selectWorkDir()">选择目录</button>
+    </div>
+
+    <!-- 统一日期 -->
     <div style="display:flex;align-items:center;gap:10px;font-size:13px;">
       <span style="color:var(--sub);white-space:nowrap;">统一拍摄日期：</span>
       <input type="date" id="batch-date-input" class="setting-input" style="width:160px;">
       <span style="font-size:12px;color:var(--sub);">（可单独修改）</span>
     </div>
-    <div id="batch-title-list" style="overflow-y:auto;max-height:340px;display:flex;flex-direction:column;gap:8px;"></div>
-    <div style="display:flex;gap:10px;justify-content:flex-end;">
+
+    <!-- 表头 -->
+    <div style="display:grid;grid-template-columns:20px 1fr 140px 180px 24px;gap:6px;align-items:center;font-size:11px;color:var(--sub);padding:0 2px;">
+      <span></span>
+      <span>视频标题</span>
+      <span>拍摄日期</span>
+      <span>对应脚本文件</span>
+      <span></span>
+    </div>
+
+    <!-- 项目行列表 -->
+    <div id="batch-title-list" style="overflow-y:auto;max-height:360px;display:flex;flex-direction:column;gap:6px;"></div>
+
+    <div style="display:flex;gap:10px;justify-content:flex-end;padding-top:4px;border-top:1px solid var(--border);">
       <button class="btn btn-ghost" onclick="batchImportCancel()">取消</button>
-      <button class="btn btn-primary" onclick="batchImportConfirm()">✓ 全部添加</button>
+      <button class="btn btn-primary" onclick="batchImportConfirm()">✓ 添加并创建目录</button>
     </div>
   </div>
 </div>
@@ -2198,12 +2222,34 @@ function addShootingProjectFromUI() {
 }
 
 // ============================================================
-// 批量拖放导入脚本文件名
+// 批量拖放导入脚本文件名 + File System Access API 建目录
 // ============================================================
 
 /** 去掉文件扩展名，保留文件名主体 */
 function stripExtension(filename) {
   return filename.replace(/\.[^/.]+$/, '').trim();
+}
+
+// 当前批量持有的 File 对象列表
+let _batchFiles = [];
+// 工作目录句柄（FileSystemDirectoryHandle），跨次保留
+let _workDirHandle = null;
+
+/** 选择工作目录（可在弹窗内调用，也可从拍摄模块提前调用） */
+async function selectWorkDir() {
+  if (!window.showDirectoryPicker) {
+    showToast('当前浏览器不支持文件系统写入，请使用 Chrome/Edge', 'warn'); return;
+  }
+  try {
+    _workDirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+    // 更新所有工作目录显示占位
+    document.querySelectorAll('#workdir-name').forEach(el => {
+      el.textContent = _workDirHandle.name;
+    });
+    showToast('工作目录已选择：' + _workDirHandle.name, 'success');
+  } catch (err) {
+    if (err.name !== 'AbortError') showToast('选择目录失败：' + err.message, 'warn');
+  }
 }
 
 function shootingDropzoneOver(e) {
@@ -2226,115 +2272,169 @@ function shootingDropzoneDrop(e) {
   e.preventDefault();
   shootingDropzoneLeave(e);
 
-  const files = Array.from(e.dataTransfer.files);
-  if (!files.length) return;
+  const files = Array.from(e.dataTransfer.files).filter(f => stripExtension(f.name).length > 0);
+  if (!files.length) { showToast('未能提取到有效文件名', 'warn'); return; }
 
-  // 提取文件名（去扩展名），过滤空名
-  const titles = files
-    .map(f => stripExtension(f.name))
-    .filter(t => t.length > 0);
-
-  if (!titles.length) { showToast('未能提取到有效文件名', 'warn'); return; }
-
-  openBatchImportModal(titles);
+  openBatchImportModal(files);
 }
 
-/** 打开批量预览弹窗 */
-function openBatchImportModal(titles) {
-  // 设置默认日期为今天
+/** 打开批量预览弹窗
+ *  @param {File[]} files
+ */
+function openBatchImportModal(files) {
+  _batchFiles = files;
   const today = getTodayStr();
   document.getElementById('batch-date-input').value = today;
 
-  // 渲染可编辑标题列表
-  const list = document.getElementById('batch-title-list');
-  list.innerHTML = titles.map((t, i) => `
-    <div style="display:flex;gap:8px;align-items:center;">
-      <span style="color:var(--sub);font-size:12px;min-width:24px;text-align:right;">${i+1}.</span>
-      <input
-        type="text"
-        class="project-input"
-        style="flex:1;font-size:13px;"
-        value="${t.replace(/"/g,'&quot;')}"
-        id="batch-title-${i}"
-      >
-      <input
-        type="date"
-        class="setting-input"
-        style="width:148px;font-size:12px;"
-        id="batch-date-${i}"
-      >
-      <button
-        style="background:none;border:none;color:var(--sub);cursor:pointer;font-size:16px;padding:0 4px;"
-        onclick="batchRemoveItem(${i})"
-        title="移除">✕</button>
-    </div>
-  `).join('');
+  // 更新工作目录显示
+  document.getElementById('workdir-name').textContent =
+    _workDirHandle ? _workDirHandle.name : '未选择';
 
-  // 绑定：统一日期变更时同步到每一行
+  // 构建脚本文件下拉选项（每行都可选任意文件，或不对应）
+  const fileOptions = files.map((f, fi) =>
+    `<option value="${fi}">${f.name}</option>`
+  ).join('');
+
+  const list = document.getElementById('batch-title-list');
+  list.innerHTML = files.map((f, i) => {
+    const title = stripExtension(f.name).replace(/"/g, '&quot;');
+    return `
+    <div style="display:grid;grid-template-columns:20px 1fr 140px 180px 24px;gap:6px;align-items:center;" id="batch-row-${i}">
+      <span style="color:var(--sub);font-size:12px;text-align:right;">${i+1}.</span>
+      <input type="text" class="project-input" style="font-size:13px;min-width:0;"
+        value="${title}" id="batch-title-${i}">
+      <input type="date" class="setting-input" style="font-size:12px;"
+        id="batch-date-${i}" value="${today}">
+      <select class="setting-input" style="font-size:12px;min-width:0;" id="batch-script-${i}">
+        <option value="">— 不对应脚本 —</option>
+        ${fileOptions}
+      </select>
+      <button style="background:none;border:none;color:var(--sub);cursor:pointer;font-size:15px;padding:0 2px;line-height:1;"
+        onclick="batchRemoveItem(${i})" title="移除">✕</button>
+    </div>`;
+  }).join('');
+
+  // 默认同序号对应
+  files.forEach((_, i) => {
+    const sel = document.getElementById(`batch-script-${i}`);
+    if (sel) sel.value = String(i);
+  });
+
+  // 统一日期联动
   document.getElementById('batch-date-input').oninput = function() {
     const val = this.value;
-    titles.forEach((_, i) => {
+    files.forEach((_, i) => {
       const el = document.getElementById(`batch-date-${i}`);
       if (el && !el.dataset.overridden) el.value = val;
     });
   };
-  // 每行日期手动改动后标记为 overridden，不再被统一日期覆盖
-  titles.forEach((_, i) => {
-    setTimeout(() => {
-      const el = document.getElementById(`batch-date-${i}`);
-      if (el) {
-        el.value = today;
-        el.addEventListener('change', () => { el.dataset.overridden = '1'; });
-      }
-    }, 0);
+  files.forEach((_, i) => {
+    const el = document.getElementById(`batch-date-${i}`);
+    if (el) el.addEventListener('change', () => { el.dataset.overridden = '1'; });
   });
 
-  // 显示弹窗
-  const modal = document.getElementById('batch-import-modal');
-  modal.style.display = 'flex';
+  document.getElementById('batch-import-modal').style.display = 'flex';
 }
 
 /** 移除某一行 */
 function batchRemoveItem(i) {
-  const row = document.getElementById(`batch-title-${i}`)?.closest('div[style]');
+  const row = document.getElementById(`batch-row-${i}`);
   if (row) row.remove();
 }
 
-/** 确认批量添加 */
-function batchImportConfirm() {
+/** 确认批量添加并创建目录结构 */
+async function batchImportConfirm() {
   const list = document.getElementById('batch-title-list');
-  const rows = list.querySelectorAll('input[id^="batch-title-"]');
-  let added = 0, skipped = 0;
+  const rows = list.querySelectorAll('[id^="batch-row-"]');
 
-  rows.forEach(titleInput => {
-    const idx = titleInput.id.replace('batch-title-', '');
-    const title = titleInput.value.trim();
-    const dateInput = document.getElementById(`batch-date-${idx}`);
-    const date = dateInput ? dateInput.value : '';
+  const entries = [];
+  let skipped = 0;
+
+  rows.forEach(row => {
+    const i = row.id.replace('batch-row-', '');
+    const title = (document.getElementById(`batch-title-${i}`) || {}).value?.trim();
+    const date  = (document.getElementById(`batch-date-${i}`)  || {}).value;
+    const scriptIdx = (document.getElementById(`batch-script-${i}`) || {}).value;
 
     if (!title) { skipped++; return; }
     if (!date)  { skipped++; showToast(`"${title}" 未填日期，已跳过`, 'warn'); return; }
 
-    // 检查是否已存在相同 title + date 的项目
     const exists = loadShootingProjects().find(p => p.title === title && p.shootingDate === date);
     if (exists) { skipped++; return; }
 
-    addShootingProject(title, date);
-    added++;
+    entries.push({
+      title,
+      date,
+      scriptFile: (scriptIdx !== '' && _batchFiles[+scriptIdx]) ? _batchFiles[+scriptIdx] : null
+    });
   });
+
+  if (!entries.length) {
+    showToast('没有新增项目（可能已存在或日期为空）', 'warn');
+    batchImportCancel();
+    return;
+  }
+
+  // 写入项目数据
+  entries.forEach(e => addShootingProject(e.title, e.date));
+
+  // 创建目录结构
+  if (_workDirHandle) {
+    try {
+      await buildFolderStructure(_workDirHandle, entries);
+      showToast(
+        `已添加 ${entries.length} 个项目并创建目录结构${skipped ? `（${skipped} 条跳过）` : ''}`,
+        'success'
+      );
+    } catch (err) {
+      showToast(`项目已添加，但目录创建失败：${err.message}`, 'warn');
+    }
+  } else {
+    showToast(
+      `已添加 ${entries.length} 个项目${skipped ? `（${skipped} 条跳过）` : ''}（未选择工作目录，已跳过建文件夹）`,
+      'success'
+    );
+  }
 
   batchImportCancel();
   renderShootingProjects();
   renderCalendar();
+}
 
-  if (added > 0) showToast(`已添加 ${added} 个拍摄项目${skipped ? `（${skipped} 条跳过）` : ''}`, 'success');
-  else showToast('没有新增项目（可能已存在或日期为空）', 'warn');
+/**
+ * 按日期/标题建目录，把脚本文件写入对应"脚本"文件夹
+ * 目录结构：根目录 / 拍摄日期 / 视频标题 / { 脚本, 素材, 成片 }
+ */
+async function buildFolderStructure(rootHandle, entries) {
+  // 按日期分组
+  const byDate = {};
+  entries.forEach(e => {
+    (byDate[e.date] = byDate[e.date] || []).push(e);
+  });
+
+  for (const [date, items] of Object.entries(byDate)) {
+    const dateDir = await rootHandle.getDirectoryHandle(date, { create: true });
+    for (const item of items) {
+      const projDir   = await dateDir.getDirectoryHandle(item.title, { create: true });
+      const scriptDir = await projDir.getDirectoryHandle('脚本', { create: true });
+      await projDir.getDirectoryHandle('素材', { create: true });
+      await projDir.getDirectoryHandle('成片', { create: true });
+
+      if (item.scriptFile) {
+        const fh = await scriptDir.getFileHandle(item.scriptFile.name, { create: true });
+        const wr = await fh.createWritable();
+        await wr.write(item.scriptFile);
+        await wr.close();
+      }
+    }
+  }
 }
 
 /** 关闭弹窗 */
 function batchImportCancel() {
   document.getElementById('batch-import-modal').style.display = 'none';
   document.getElementById('batch-title-list').innerHTML = '';
+  _batchFiles = [];
 }
 
 function deleteShootingProject(id) {
