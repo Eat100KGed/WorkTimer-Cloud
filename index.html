@@ -941,13 +941,18 @@ function saveShootingProjects(projects) {
 }
 function addShootingProject(title, date) {
   const projects = loadShootingProjects();
-  projects.push({
+  const newProject = {
     id: Date.now(),
     title: title,
     shootingDate: date,
     createdAt: new Date().toISOString()
-  });
+  };
+  projects.push(newProject);
   saveShootingProjects(projects);
+  
+  // 同步添加到剪辑项目
+  addEditingProject(title, date);
+  
   return projects;
 }
 
@@ -974,28 +979,10 @@ function addEditingProject(title, shootingDate) {
   return projects;
 }
 
-// 自动将拍摄项目转入剪辑项目
+// 自动将拍摄项目转入剪辑项目（已废弃，现在添加拍摄项目时立即同步）
 function autoTransferToEditing() {
-  const today = getTodayStr();
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayStr = yesterday.toLocaleDateString('zh-CN',{year:'numeric',month:'2-digit',day:'2-digit'}).replace(/\//g,'-');
-
-  const shootingProjects = loadShootingProjects();
-  const editingProjects = loadEditingProjects();
-
-  let transferred = 0;
-  shootingProjects.forEach(project => {
-    // 检查这个拍摄项目是否已经在剪辑项目中
-    const exists = editingProjects.find(ep => ep.shootingDate === project.shootingDate && ep.title === project.title);
-    if (!exists && project.shootingDate === yesterdayStr) {
-      // 昨天的拍摄项目今天转入剪辑
-      addEditingProject(project.title, project.shootingDate);
-      transferred++;
-    }
-  });
-
-  return transferred;
+  // 现在添加拍摄项目时会立即同步到剪辑项目，此函数保留但不再执行转移逻辑
+  return 0;
 }
 
 // ============================================================
@@ -1576,7 +1563,11 @@ function renderEditingProjects() {
              onchange="toggleEditingCompleted(${project.id})">
       <span class="project-title">${project.title}</span>
       <span class="project-date">拍摄：${project.shootingDate}</span>
-      ${project.editingCompleted ? `<span class="project-date">剪辑完成：${project.editingCompletedDate}</span>` : ''}
+      ${project.editingCompleted ? `
+        <span class="project-date" onclick="editCompletedDate(${project.id})" style="cursor:pointer;" title="点击修改完成时间">
+          剪辑完成：${project.editingCompletedDate} ✏️
+        </span>
+      ` : ''}
       <button class="project-delete-btn" onclick="deleteEditingProject(${project.id})">✕</button>
     </div>
   `).join('') + `<p style="color:var(--sub);font-size:12px;margin-top:10px;">点击日历日期查看历史拍摄计划</p>`;
@@ -1589,13 +1580,10 @@ function addEditingProjectFromUI() {
   if (!title) { showToast('请输入视频标题', 'warn'); return; }
   if (!shootingDate) { showToast('请选择拍摄完成日期', 'warn'); return; }
 
-  // 添加剪辑项目（使用选择的拍摄日期）
-  addEditingProject(title, shootingDate);
-  renderEditingProjects();
-
-  // 同时添加到拍摄项目，在选择的拍摄日期创建拍摄计划
+  // 先添加拍摄项目，它会自动同步到剪辑项目
   addShootingProject(title, shootingDate);
   renderShootingProjects();
+  renderEditingProjects();
 
   // 更新日历标注（会在选择的拍摄日期显示黄色）
   renderCalendar();
@@ -1603,7 +1591,7 @@ function addEditingProjectFromUI() {
   document.getElementById('editing-title-input').value = '';
   document.getElementById('editing-date-input').value = '';
 
-  showToast(`剪辑项目已添加，已在 ${shootingDate} 创建拍摄计划并标注日历`, 'success');
+  showToast(`拍摄和剪辑项目已添加，拍摄日期：${shootingDate}`, 'success');
 }
 
 function toggleEditingCompleted(id) {
@@ -1615,6 +1603,29 @@ function toggleEditingCompleted(id) {
     saveEditingProjects(projects);
     renderEditingProjects();
   }
+}
+
+// 手动修改剪辑完成日期
+function editCompletedDate(id) {
+  const projects = loadEditingProjects();
+  const project = projects.find(p => p.id === id);
+  if (!project || !project.editingCompleted) return;
+
+  const currentDate = project.editingCompletedDate || getTodayStr();
+  const newDate = prompt('修改剪辑完成日期（格式：YYYY-MM-DD）：', currentDate);
+  
+  if (newDate === null) return; // 用户取消
+  
+  // 验证日期格式
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(newDate)) {
+    showToast('日期格式错误，请使用 YYYY-MM-DD 格式', 'warn');
+    return;
+  }
+  
+  project.editingCompletedDate = newDate;
+  saveEditingProjects(projects);
+  renderEditingProjects();
+  showToast(`剪辑完成日期已修改为 ${newDate}`, 'success');
 }
 
 function deleteEditingProject(id) {
