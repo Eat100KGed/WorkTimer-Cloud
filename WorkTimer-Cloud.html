@@ -1,0 +1,3634 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WorkTimer Cloud · 工时记录</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --card: #1a1d27;
+    --card2: #21253a;
+    --accent: #4f8ef7;
+    --accent2: #7c5ef5;
+    --green: #34d399;
+    --yellow: #fbbf24;
+    --red: #f87171;
+    --text: #e2e8f0;
+    --sub: #8892a4;
+    --border: #2d3348;
+    --shadow: 0 4px 24px rgba(0,0,0,.45);
+    --radius: 14px;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body {
+    height: 100%;
+  }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ===== 顶部 ===== */
+  header {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 24px 8px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .logo { display:flex; align-items:center; gap:8px; }
+  .logo-icon { font-size:22px; }
+  .logo-text { font-size:18px; font-weight:700; background: linear-gradient(135deg,var(--accent),var(--accent2)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+  .today-label { font-size:12px; color:var(--sub); }
+
+  /* ===== 主体布局 ===== */
+  main {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: row;
+    gap: 0;
+    padding: 10px 14px 10px;
+    min-height: 0;
+  }
+
+  /* 列拖拽分隔条 */
+  .col-divider {
+    width: 8px;
+    flex-shrink: 0;
+    cursor: col-resize;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    z-index: 10;
+    user-select: none;
+  }
+  .col-divider::after {
+    content: '';
+    width: 2px;
+    height: 60%;
+    background: var(--border);
+    border-radius: 2px;
+    transition: background .2s, height .2s;
+  }
+  .col-divider:hover::after,
+  .col-divider.dragging::after {
+    background: var(--accent);
+    height: 80%;
+  }
+
+  /* 左栏：日历 + 历史记录（次要内容） */
+  .col-left {
+    width: 300px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    overflow: hidden;
+    min-height: 0;
+    min-width: 180px;
+    max-width: 520px;
+  }
+  /* 中栏：倒计时 + 开关机时间 + 时间设置（核心功能） */
+  .col-mid {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    overflow: hidden;
+    min-height: 0;
+    min-width: 260px;
+  }
+  /* 右栏：拍摄项目 + 剪辑项目 */
+  .col-right {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 260px;
+  }
+  /* 尺寸滑动模块卡片（现在在设置面板内）*/
+  .size-item {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .size-item-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .size-item-label {
+    font-size: 12px;
+    color: var(--sub);
+    white-space: nowrap;
+  }
+  .size-item-val {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent);
+    min-width: 30px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  .size-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border);
+    outline: none;
+    cursor: pointer;
+    transition: background .15s;
+  }
+  .size-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    cursor: pointer;
+    box-shadow: 0 1px 6px rgba(79,142,247,.4);
+    transition: transform .15s, box-shadow .15s;
+  }
+  .size-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.25);
+    box-shadow: 0 2px 10px rgba(79,142,247,.6);
+  }
+  .size-slider::-webkit-slider-runnable-track {
+    height: 4px;
+    border-radius: 2px;
+  }
+  /* 滑动轨道填充色（用 JS 动态更新 background） */
+  .size-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 2px 0;
+  }
+  .size-reset-btn {
+    width: 100%;
+    margin-top: 4px;
+    padding: 7px 0;
+    font-size: 12px;
+    font-weight: 600;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    color: var(--sub);
+    cursor: pointer;
+    transition: border-color .2s, color .2s;
+  }
+  .size-reset-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  /* 底部隐藏 */
+  .col-bottom {
+    display: none;
+  }
+
+  /* 可调高度的卡片容器 — relative 用于绝对定位把手 */
+  .resizable-card {
+    position: relative;
+    flex-shrink: 0;
+    min-height: 60px;
+    display: flex;
+    flex-direction: column;
+    overflow: visible;   /* 让把手可以超出底部 */
+  }
+  .resizable-card .card,
+  .resizable-card .calendar-card,
+  .resizable-card .project-card {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  /* 卡片行高拖拽把手 — 绝对定位在卡片底部内侧，不超出容器 */
+  .card-resize-handle {
+    position: absolute;
+    bottom: 0;
+    left: 0; right: 0;
+    height: 10px;
+    cursor: row-resize;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 20;
+  }
+  .card-resize-handle::after {
+    content: '';
+    width: 40px;
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    transition: background .2s, width .2s;
+  }
+  .card-resize-handle:hover::after,
+  .card-resize-handle.dragging::after {
+    background: var(--accent);
+    width: 56px;
+  }
+
+  /* 历史记录撑满剩余高度 */
+  .col-left .history-resizable {
+    flex: 1;
+    min-height: 100px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  /* 项目卡片 flex 撑满 */
+  .col-right .project-card {
+    flex: 1;
+  }
+
+  /* 中栏倒计时卡片撑满剩余高度 */
+  #rc-countdown {
+    flex: 1 !important;
+    height: auto !important;
+  }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 16px 18px;
+    flex-shrink: 0;
+  }
+  .card-scroll {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 16px 18px;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* --- 倒计时核心 --- */
+  .timer-hero {
+    text-align: center;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    min-height: 0;
+  }
+  .season-badge {
+    display: inline-block;
+    padding: 2px 12px;
+    border-radius: 20px;
+    font-size:11px;
+    font-weight:600;
+    letter-spacing:1px;
+    margin-bottom: 10px;
+  }
+  .season-summer { background: rgba(251,191,36,.15); color: var(--yellow); border:1px solid rgba(251,191,36,.3); }
+  .season-winter { background: rgba(99,179,237,.15); color: #63b3ed; border:1px solid rgba(99,179,237,.3); }
+
+  .countdown-display {
+    font-size: 72px; /* JS ResizeObserver 动态覆盖 */
+    font-weight: 800;
+    letter-spacing: -2px;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    transition: color .4s, font-size .15s ease;
+  }
+  .countdown-display.done { color: var(--green); }
+  .countdown-display.soon { color: var(--yellow); animation: pulse 1s infinite; }
+  .countdown-display.normal { color: var(--accent); }
+  .countdown-display.overdue { color: var(--red); }
+
+  @keyframes pulse {
+    0%,100% { opacity:1; }
+    50% { opacity:.6; }
+  }
+  .countdown-sub {
+    margin-top: 10px;
+    font-size: 15px;
+    color: var(--sub);
+  }
+  .countdown-sub span { color: var(--text); font-weight: 600; }
+
+  .progress-bar-wrap {
+    margin: 12px auto 0;
+    max-width: 500px;
+    background: var(--border);
+    border-radius: 8px;
+    height: 6px;
+    overflow: hidden;
+  }
+  .progress-bar {
+    height:100%;
+    border-radius:8px;
+    background: linear-gradient(90deg,var(--accent),var(--accent2));
+    transition: width .5s ease;
+  }
+
+  /* --- 时间信息行（2×2）--- */
+  .time-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 6px;
+    flex: 1;
+    min-height: 0;
+  }
+  .time-item {
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .time-item-label { font-size:11px; color:var(--sub); margin-bottom:2px; letter-spacing:.3px; }
+  .time-item-val {
+    font-size: 26px; /* JS ResizeObserver 动态覆盖 */
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    transition: font-size .12s ease;
+  }
+  .time-item-sub { font-size:10px; color:var(--sub); margin-top:2px; }
+
+  /* 各格数字着色 */
+  #disp-boot   { color: #60a5fa; }   /* 开机 — 蓝 */
+  #disp-off    { color: #f59e0b; }   /* 应下班 — 琥珀 */
+  #disp-now    { color: #34d399; }   /* 当前时间 — 绿 */
+  #disp-month  { color: #a78bfa; }   /* 本月记录 — 紫 */
+
+  /* --- 手动调整 --- */
+  .adjust-row {
+    display:flex;
+    align-items:center;
+    gap:12px;
+    flex-wrap:wrap;
+  }
+  .adjust-row label { font-size:14px; color:var(--sub); white-space:nowrap; }
+  .time-input {
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-size:16px;
+    font-weight:600;
+    padding: 8px 12px;
+    width: 130px;
+    outline:none;
+    transition: border-color .2s;
+  }
+  .time-input:focus { border-color: var(--accent); }
+
+  .btn {
+    padding: 9px 20px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-size:14px;
+    font-weight:600;
+    transition: all .2s;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg,var(--accent),var(--accent2));
+    color:#fff;
+  }
+  .btn-primary:hover { opacity:.85; transform:translateY(-1px); }
+  .btn-ghost {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--sub);
+  }
+  .btn-ghost:hover { border-color:var(--accent); color:var(--accent); }
+  .btn-danger {
+    background: rgba(248,113,113,.15);
+    border: 1px solid rgba(248,113,113,.3);
+    color: var(--red);
+  }
+  .btn-danger:hover { background: rgba(248,113,113,.25); }
+  .btn-green {
+    background: rgba(52,211,153,.15);
+    border: 1px solid rgba(52,211,153,.3);
+    color: var(--green);
+  }
+  .btn-green:hover { background: rgba(52,211,153,.25); }
+  .btn-red {
+    background: rgba(248,113,113,.15);
+    border: 1px solid rgba(248,113,113,.3);
+    color: var(--red);
+    font-weight:600;
+  }
+  .btn-red:hover { background: rgba(248,113,113,.25); }
+  .btn-yellow {
+    background: rgba(251,191,36,.15);
+    border: 1px solid rgba(251,191,36,.3);
+    color: var(--yellow);
+    font-weight:600;
+  }
+  .btn-yellow:hover { background: rgba(251,191,36,.25); }
+
+  .save-hint { font-size:12px; color:var(--sub); margin-left:6px; }
+
+  /* --- section 标题 --- */
+  .section-title {
+    font-size:13px;
+    font-weight:700;
+    color:var(--sub);
+    text-transform:uppercase;
+    letter-spacing:.8px;
+    margin-bottom:10px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .section-title::after {
+    content:'';
+    flex:1;
+    height:1px;
+    background:var(--border);
+  }
+
+  /* --- 历史记录表格 --- */
+  .history-toolbar {
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-bottom:8px;
+    flex-shrink: 0;
+  }
+  .table-wrap {
+    overflow-x:auto;
+    border-radius:10px;
+    border: 1px solid var(--border);
+  }
+  table {
+    width:100%;
+    border-collapse:collapse;
+    font-size:14px;
+  }
+  thead tr { background: var(--card2); }
+  th {
+    padding: 11px 14px;
+    text-align:left;
+    color:var(--sub);
+    font-weight:600;
+    font-size:12px;
+    letter-spacing:.5px;
+    white-space:nowrap;
+  }
+  td {
+    padding: 11px 14px;
+    border-top: 1px solid var(--border);
+    white-space:nowrap;
+  }
+  tbody tr:hover { background: rgba(79,142,247,.06); }
+  .tag-summer { color:var(--yellow); }
+  .tag-winter { color:#63b3ed; }
+  .tag-today { color:var(--green); font-weight:700; }
+  .note-input {
+    background:transparent;
+    border:none;
+    border-bottom: 1px solid transparent;
+    color:var(--sub);
+    font-size:13px;
+    width:120px;
+    outline:none;
+    transition: border-color .2s;
+  }
+  .note-input:focus { border-bottom-color:var(--accent); color:var(--text); }
+  .del-btn {
+    background:none;
+    border:none;
+    cursor:pointer;
+    color:var(--sub);
+    font-size:16px;
+    transition: color .2s;
+    padding: 0 4px;
+  }
+  .del-btn:hover { color:var(--red); }
+  .edit-btn {
+    background:none;
+    border:none;
+    cursor:pointer;
+    color:var(--sub);
+    font-size:13px;
+    transition: color .2s;
+    padding: 0 4px;
+  }
+  .edit-btn:hover { color:var(--accent); }
+  .empty-row td { text-align:center; color:var(--sub); padding:30px; }
+
+  /* --- 统计卡片（2×2）--- */
+  .stats-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    flex: 1;
+    min-height: 0;
+  }
+  .stat-card {
+    background: var(--card2);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:8px 10px;
+    text-align:center;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .stat-val {
+    font-size:22px; /* JS ResizeObserver动态覆盖 */
+    font-weight:800;
+    transition: font-size .12s ease;
+  }
+  .stat-label { font-size:11px; color:var(--sub); margin-top:2px; }
+  .stat-blue .stat-val { color:var(--accent); }
+  .stat-green .stat-val { color:var(--green); }
+  .stat-yellow .stat-val { color:var(--yellow); }
+
+  /* --- Toast 通知 --- */
+  #toast-area {
+    position:fixed;
+    bottom:24px;
+    right:24px;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    z-index:9999;
+    pointer-events:none;
+  }
+  .toast {
+    background: var(--card2);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:13px 18px;
+    font-size:14px;
+    box-shadow: var(--shadow);
+    animation: slideIn .3s ease;
+    pointer-events:all;
+    max-width:300px;
+  }
+  .toast-success { border-left:3px solid var(--green); }
+  .toast-info    { border-left:3px solid var(--accent); }
+  .toast-warn    { border-left:3px solid var(--yellow); }
+  @keyframes slideIn {
+    from { transform:translateX(40px); opacity:0; }
+    to   { transform:translateX(0); opacity:1; }
+  }
+
+  /* --- 提醒弹窗 --- */
+  .overlay {
+    display:none;
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,.7);
+    z-index:1000;
+    align-items:center;
+    justify-content:center;
+  }
+  .overlay.show { display:flex; }
+  .modal {
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:20px;
+    padding:40px 36px;
+    text-align:center;
+    max-width:360px;
+    width:90%;
+    box-shadow:0 20px 60px rgba(0,0,0,.6);
+    animation: popIn .35s cubic-bezier(.17,.67,.39,1.3);
+  }
+  @keyframes popIn {
+    from { transform:scale(.8); opacity:0; }
+    to   { transform:scale(1); opacity:1; }
+  }
+  .modal-icon { font-size:56px; margin-bottom:16px; }
+  .modal h2 { font-size:22px; margin-bottom:10px; }
+  .modal p { color:var(--sub); font-size:15px; line-height:1.6; margin-bottom:24px; }
+  .modal .btn { width:100%; padding:13px; font-size:16px; }
+
+  /* --- 设置面板 --- */
+  .settings-grid {
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:14px;
+  }
+  .setting-item label { display:block; font-size:12px; color:var(--sub); margin-bottom:6px; }
+  .setting-input {
+    width:100%;
+    background:var(--card2);
+    border:1px solid var(--border);
+    border-radius:8px;
+    color:var(--text);
+    font-size:15px;
+    padding:8px 12px;
+    outline:none;
+  }
+  .setting-input:focus { border-color:var(--accent); }
+
+  /* ===== 右上角设置按钮 & 下拉菜单 ===== */
+  .settings-btn-wrap {
+    position: relative;
+  }
+  .settings-toggle-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--card2);
+    color: var(--sub);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .2s;
+  }
+  .settings-toggle-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .settings-panel {
+    display: none;
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    width: 460px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: 0 8px 40px rgba(0,0,0,.6);
+    z-index: 500;
+    overflow: hidden;
+  }
+  .settings-panel.show { display: block; }
+  .settings-panel-inner {
+    padding: 20px;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+  .settings-panel-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .sp-tab {
+    flex: 1;
+    padding: 12px 16px;
+    border: none;
+    background: transparent;
+    color: var(--sub);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .2s;
+    border-bottom: 2px solid transparent;
+  }
+  .sp-tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+    background: rgba(79,142,247,.05);
+  }
+  .sp-tab:hover:not(.active) { color: var(--text); background: rgba(255,255,255,.03); }
+  .sp-pane { display: none; padding: 18px 20px; }
+  .sp-pane.active { display: block; }
+
+  /* 响应式 */
+  @media(max-width:1100px) {
+    .col-left { width: 260px; }
+  }
+  @media(max-width:900px) {
+    body { overflow: auto; height: auto; }
+    main {
+      flex-direction: column;
+      overflow: visible;
+      height: auto;
+      padding: 10px 12px 30px;
+    }
+    .col-left {
+      width: 100%;
+      max-width: 100%;
+      overflow: visible;
+      min-height: auto;
+    }
+    .col-mid, .col-right {
+      overflow: visible;
+      min-height: auto;
+    }
+    .col-divider { display: none; }
+    .resizable-card { height: auto !important; }
+    .card-resize-handle { display: none; }
+    .col-left, .col-mid { gap: 10px; }
+    .col-bottom { display: none; }
+    .calendar-card, .project-card {
+      flex: none;
+      height: auto;
+    }
+    .project-list { max-height: 200px; }
+    .countdown-display { font-size:54px; }
+    .settings-grid { grid-template-columns:1fr; }
+    .settings-panel { width: min(420px, 92vw); right: -10px; }
+  }
+
+  /* 滚动条美化 */
+  ::-webkit-scrollbar { width:5px; height:5px; }
+  ::-webkit-scrollbar-track { background:transparent; }
+  ::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+
+  /* 导出按钮特效 */
+  .export-btn-wrap { position:relative; }
+  .export-dropdown {
+    display:none;
+    position:absolute;
+    top:calc(100% + 6px);
+    right:0;
+    background:var(--card2);
+    border:1px solid var(--border);
+    border-radius:10px;
+    overflow:hidden;
+    box-shadow:var(--shadow);
+    z-index:100;
+    min-width:160px;
+  }
+  .export-dropdown.show { display:block; }
+  .export-dropdown button {
+    display:block;
+    width:100%;
+    padding:11px 16px;
+    text-align:left;
+    background:transparent;
+    border:none;
+    color:var(--text);
+    font-size:14px;
+    cursor:pointer;
+    transition:background .15s;
+  }
+  .export-dropdown button:hover { background:rgba(79,142,247,.1); }
+
+  /* 当前时间显示 */
+  #current-time {
+    font-size:13px;
+    color:var(--sub);
+    font-variant-numeric:tabular-nums;
+  }
+
+  /* 日历样式 */
+  .calendar-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 14px 16px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .calendar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    flex-shrink: 0;
+  }
+  .calendar-nav-btn {
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    padding: 5px 12px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.2s;
+  }
+  .calendar-nav-btn:hover {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+  }
+  .calendar-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+    flex-shrink: 0;
+  }
+  .calendar-day-header {
+    text-align: center;
+    font-size: 11px;
+    color: var(--sub);
+    font-weight: 600;
+    padding: 6px 0;
+  }
+  .calendar-day {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+    transition: all 0.2s;
+    position: relative;
+  }
+  .calendar-day:hover {
+    border-color: var(--accent);
+    background: rgba(79, 142, 247, 0.1);
+  }
+  .calendar-day.today {
+    border-color: var(--green);
+    color: var(--green);
+  }
+  .calendar-day.shooting-day {
+    background: var(--yellow);
+    color: var(--bg);
+  }
+  .calendar-day.has-work {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(79, 142, 247, 0.3);
+  }
+  .calendar-day.empty {
+    background: transparent;
+    border: none;
+    cursor: default;
+  }
+  .calendar-day.empty:hover {
+    background: transparent;
+    border: none;
+  }
+
+  /* 项目管理样式 */
+  .project-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 14px 16px;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .project-form {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+  }
+  .project-input {
+    flex: 1;
+    min-width: 200px;
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 14px;
+    padding: 8px 12px;
+    outline: none;
+  }
+  .project-input:focus {
+    border-color: var(--accent);
+  }
+  .project-list {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+  }
+  .project-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px;
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 10px;
+  }
+  .project-item.completed {
+    opacity: 0.6;
+  }
+  .project-item.completed .project-title {
+    text-decoration: line-through;
+    color: var(--sub);
+  }
+  .project-checkbox {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+  }
+  .project-title {
+    flex: 1;
+    font-size: 14px;
+    color: var(--text);
+  }
+  .project-date {
+    font-size: 12px;
+    color: var(--sub);
+  }
+  .project-delete-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--sub);
+    font-size: 16px;
+    padding: 4px;
+    transition: color 0.2s;
+  }
+  .project-delete-btn:hover {
+    color: var(--red);
+  }
+
+  /* 拍摄日历特殊样式 */
+  .shooting-indicator {
+    position: absolute;
+    bottom: 4px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 6px;
+    height: 6px;
+    background: var(--yellow);
+    border-radius: 50%;
+  }
+  .calendar-day.shooting-day .shooting-indicator {
+    display: none;
+  }
+</style>
+</head>
+<body>
+
+<!-- ======== 下班提醒弹窗 ======== -->
+<div class="overlay" id="reminder-modal">
+  <div class="modal">
+    <div class="modal-icon">🎉</div>
+    <h2>下班时间到啦！</h2>
+    <p id="modal-detail">辛苦了！今天的工作结束了。</p>
+    <button class="btn btn-primary" onclick="dismissReminder()">好的，下班！</button>
+  </div>
+</div>
+
+<!-- ======== 日期详情弹窗 ======== -->
+<div class="overlay" id="date-detail-modal">
+  <div class="modal" style="max-width:600px;text-align:left;">
+    <h2 style="margin-bottom:16px;" id="date-detail-title">日期详情</h2>
+    <div id="date-detail-content"></div>
+    <button class="btn btn-primary" onclick="closeDateDetailModal()" style="width:100%;margin-top:20px;">关闭</button>
+  </div>
+</div>
+
+<!-- ======== 顶部 ======== -->
+<header>
+  <div class="logo">
+    <span class="logo-icon">⏱</span>
+    <span class="logo-text">WorkTimer Cloud</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:16px;">
+    <div id="today-date" class="today-label"></div>
+    <div id="current-time" style="font-size:13px;color:var(--sub);font-variant-numeric:tabular-nums;"></div>
+    <!-- 右上角设置按钮 -->
+    <div class="settings-btn-wrap" id="settings-btn-wrap">
+      <button class="settings-toggle-btn" onclick="toggleSettingsPanel()" title="设置">
+        ⚙️ 设置
+      </button>
+      <div class="settings-panel" id="settings-panel">
+        <div class="settings-panel-tabs">
+          <button class="sp-tab active" onclick="switchSpTab('general', this)">⚙️ 通用设置</button>
+          <button class="sp-tab" onclick="switchSpTab('cloud', this)">☁️ 云端同步</button>
+          <button class="sp-tab" onclick="switchSpTab('sizes', this)">🔲 界面尺寸</button>
+        </div>
+        <!-- 通用设置 -->
+        <div class="sp-pane active" id="sp-pane-general">
+          <div class="settings-grid">
+            <div class="setting-item">
+              <label>夏季开始月</label>
+              <input type="number" id="set-summer-start" class="setting-input" min="1" max="12" value="4" onchange="saveSettings()">
+            </div>
+            <div class="setting-item">
+              <label>夏季结束月</label>
+              <input type="number" id="set-summer-end" class="setting-input" min="1" max="12" value="10" onchange="saveSettings()">
+            </div>
+            <div class="setting-item">
+              <label>夏季工时（分）</label>
+              <input type="number" id="set-summer-min" class="setting-input" min="60" max="720" value="530" onchange="saveSettings()">
+            </div>
+            <div class="setting-item">
+              <label>冬季工时（分）</label>
+              <input type="number" id="set-winter-min" class="setting-input" min="60" max="720" value="500" onchange="saveSettings()">
+            </div>
+          </div>
+          <div style="margin-top:14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <button class="btn btn-primary" onclick="exportData()" style="padding:7px 14px;font-size:13px;">📤 导出</button>
+            <button class="btn btn-ghost" onclick="document.getElementById('import-file-input').click()" style="padding:7px 14px;font-size:13px;">📥 导入</button>
+            <button class="btn btn-ghost" onclick="clearAllData()" style="padding:7px 14px;font-size:13px;">🗑 清除</button>
+          </div>
+          <input type="file" id="import-file-input" accept=".json" style="display:none" onchange="importData(event)">
+        </div>
+        <!-- 云端同步 -->
+        <div class="sp-pane" id="sp-pane-cloud">
+          <div id="cloud-unconfigured">
+            <p style="font-size:12px;color:var(--sub);margin-bottom:12px;line-height:1.6;">
+              通过 <strong style="color:var(--text)">GitHub Gist</strong> 跨设备同步，需要 Personal Access Token（gist 权限）。
+            </p>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <div class="setting-item">
+                <label>GitHub Token</label>
+                <input type="password" id="cloud-token-input" class="setting-input" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
+              </div>
+              <div class="setting-item">
+                <label>Gist ID（留空自动创建）</label>
+                <input type="text" id="cloud-gist-id-input" class="setting-input" placeholder="留空自动创建">
+              </div>
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                <button class="btn btn-primary" onclick="cloudConnect()" style="padding:7px 14px;font-size:13px;">🔗 连接</button>
+                <a href="https://github.com/settings/tokens/new?scopes=gist&description=WorkTimer" target="_blank" style="font-size:12px;color:var(--accent);text-decoration:none;">→ 生成 Token</a>
+              </div>
+            </div>
+          </div>
+          <div id="cloud-configured" style="display:none;">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap;">
+              <div id="cloud-status-dot" style="width:8px;height:8px;border-radius:50%;background:var(--sub);flex-shrink:0;"></div>
+              <span id="cloud-status-text" style="font-size:13px;color:var(--sub);">未同步</span>
+              <span id="cloud-gist-link-wrap" style="font-size:12px;"></span>
+            </div>
+            <div id="cloud-last-sync" style="font-size:11px;color:var(--sub);margin-bottom:10px;"></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn btn-primary" onclick="cloudPush()" style="padding:6px 12px;font-size:12px;">⬆ 上传</button>
+              <button class="btn btn-ghost" onclick="cloudPull()" style="padding:6px 12px;font-size:12px;">⬇ 下载</button>
+              <button class="btn btn-ghost" onclick="cloudAutoSync()" style="padding:6px 12px;font-size:12px;">🔄 自动</button>
+              <button class="btn btn-danger" onclick="cloudDisconnect()" style="padding:6px 12px;font-size:12px;">断开</button>
+            </div>
+            <div style="margin-top:8px;font-size:11px;color:var(--sub);">Gist：<span id="cloud-gist-id-display" style="color:var(--text);font-family:monospace;font-size:10px;"></span></div>
+          </div>
+        </div>
+        <!-- 界面尺寸 -->
+        <div class="sp-pane" id="sp-pane-sizes">
+          <div style="display:flex;flex-direction:column;gap:14px;">
+
+            <div class="size-item">
+              <div class="size-item-header">
+                <span class="size-item-label">⏱ 倒计时字号</span>
+                <span class="size-item-val" id="sz-val-countdown">72</span>
+              </div>
+              <input type="range" class="size-slider" id="sz-countdown"
+                     min="32" max="140" value="72" step="2"
+                     oninput="applySize('countdown', this.value)">
+            </div>
+
+            <div class="size-item">
+              <div class="size-item-header">
+                <span class="size-item-label">🕐 时间数字字号</span>
+                <span class="size-item-val" id="sz-val-timenum">26</span>
+              </div>
+              <input type="range" class="size-slider" id="sz-timenum"
+                     min="14" max="52" value="26" step="1"
+                     oninput="applySize('timenum', this.value)">
+            </div>
+
+            <div class="size-item">
+              <div class="size-item-header">
+                <span class="size-item-label">📊 统计数字字号</span>
+                <span class="size-item-val" id="sz-val-statnum">22</span>
+              </div>
+              <input type="range" class="size-slider" id="sz-statnum"
+                     min="12" max="44" value="22" step="1"
+                     oninput="applySize('statnum', this.value)">
+            </div>
+
+            <div class="size-divider"></div>
+
+            <div class="size-item">
+              <div class="size-item-header">
+                <span class="size-item-label">📦 卡片内边距</span>
+                <span class="size-item-val" id="sz-val-padding">16</span>
+              </div>
+              <input type="range" class="size-slider" id="sz-padding"
+                     min="6" max="32" value="16" step="1"
+                     oninput="applySize('padding', this.value)">
+            </div>
+
+            <div class="size-item">
+              <div class="size-item-header">
+                <span class="size-item-label">◉ 卡片圆角</span>
+                <span class="size-item-val" id="sz-val-radius">14</span>
+              </div>
+              <input type="range" class="size-slider" id="sz-radius"
+                     min="0" max="28" value="14" step="1"
+                     oninput="applySize('radius', this.value)">
+            </div>
+
+            <div class="size-divider"></div>
+
+            <div class="size-item">
+              <div class="size-item-header">
+                <span class="size-item-label">↔ 主体内边距</span>
+                <span class="size-item-val" id="sz-val-mainpad">10</span>
+              </div>
+              <input type="range" class="size-slider" id="sz-mainpad"
+                     min="0" max="24" value="10" step="1"
+                     oninput="applySize('mainpad', this.value)">
+            </div>
+
+            <div class="size-item">
+              <div class="size-item-header">
+                <span class="size-item-label">📋 项目列表字号</span>
+                <span class="size-item-val" id="sz-val-projfont">13</span>
+              </div>
+              <input type="range" class="size-slider" id="sz-projfont"
+                     min="10" max="20" value="13" step="1"
+                     oninput="applySize('projfont', this.value)">
+            </div>
+
+            <button class="size-reset-btn" onclick="resetAllSizes()">↺ 重置默认值</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ======== 主体 ======== -->
+<main>
+
+  <!-- ====== 左栏：日历 + 历史记录（次要内容） ====== -->
+  <div class="col-left" id="col-left">
+
+    <!-- 日历（可调高度） -->
+    <div class="resizable-card" id="rc-calendar" style="height:320px;">
+      <div class="calendar-card" style="height:100%;overflow:hidden;">
+        <div class="calendar-header">
+          <button class="calendar-nav-btn" onclick="changeMonth(-1)">◀</button>
+          <div class="calendar-title" id="calendar-title"></div>
+          <button class="calendar-nav-btn" onclick="changeMonth(1)">▶</button>
+        </div>
+        <div class="calendar-grid" style="flex-shrink:0;">
+          <div class="calendar-day-header">日</div>
+          <div class="calendar-day-header">一</div>
+          <div class="calendar-day-header">二</div>
+          <div class="calendar-day-header">三</div>
+          <div class="calendar-day-header">四</div>
+          <div class="calendar-day-header">五</div>
+          <div class="calendar-day-header">六</div>
+        </div>
+        <div class="calendar-grid" id="calendar-days" style="flex:1;align-content:start;overflow:hidden;"></div>
+        <div style="margin-top:8px;font-size:11px;color:var(--sub);flex-shrink:0;">
+          <span style="color:var(--yellow);">■</span> 拍摄日
+          <span style="margin-left:10px;color:var(--accent);">■</span> 有记录
+          <span style="margin-left:10px;color:var(--green);">■</span> 今天
+        </div>
+      </div>
+      <div class="card-resize-handle" data-target="rc-calendar"></div>
+    </div>
+
+    <!-- 统计（2×2，可调高度，位于日历和历史记录之间） -->
+    <div class="resizable-card" id="rc-stats" style="height:160px;">
+      <div class="stats-row" style="grid-template-rows:1fr 1fr;gap:6px;">
+        <div class="stat-card stat-blue" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:0;overflow:hidden;">
+          <div class="stat-val" id="stat-total">0</div>
+          <div class="stat-label">累计天数</div>
+        </div>
+        <div class="stat-card stat-green" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:0;overflow:hidden;">
+          <div class="stat-val" id="stat-avg">--</div>
+          <div class="stat-label">均开机</div>
+        </div>
+        <div class="stat-card stat-yellow" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:0;overflow:hidden;">
+          <div class="stat-val" id="stat-earliest">--</div>
+          <div class="stat-label">最早</div>
+        </div>
+        <div class="stat-card" style="--sv-color:var(--accent2);display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:0;overflow:hidden;">
+          <div class="stat-val" style="color:var(--accent2)" id="stat-latest">--</div>
+          <div class="stat-label">最晚</div>
+        </div>
+      </div>
+      <div class="card-resize-handle" data-target="rc-stats"></div>
+    </div>
+
+    <!-- 历史记录（撑满剩余高度） -->
+    <div class="history-resizable" id="rc-history" style="flex:1;min-height:120px;display:flex;flex-direction:column;overflow:hidden;">
+      <div class="card" style="flex:1;min-height:0;padding:14px 14px;display:flex;flex-direction:column;overflow:hidden;">
+        <div class="history-toolbar">
+          <div class="section-title" style="margin-bottom:0;flex:1">历史记录</div>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            <input type="month" id="filter-month" class="time-input" style="width:126px;font-size:13px;padding:6px 8px;" onchange="renderHistory()">
+            <div class="export-btn-wrap">
+              <button class="btn btn-green" onclick="toggleExport()" style="padding:6px 10px;font-size:12px;">⬇ 导出</button>
+              <div class="export-dropdown" id="export-dropdown">
+                <button onclick="exportWeekly()">📊 WorkList-W（周总结）</button>
+                <button onclick="exportAllWorkTime()">⏰ WorkTime（全部工时）</button>
+                <button onclick="exportMonthly()">📅 WorkList-M（月总结）</button>
+              </div>
+            </div>
+            <button class="btn btn-ghost" onclick="addTodayManual()" style="padding:6px 10px;font-size:12px;">+ 今日</button>
+          </div>
+        </div>
+        <div class="table-wrap" style="flex:1;overflow:auto;">
+          <table style="font-size:13px;">
+            <thead>
+              <tr>
+                <th>日期</th>
+                <th>星期</th>
+                <th>开机</th>
+                <th>下班</th>
+                <th>工时</th>
+                <th>备注</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="history-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /col-left -->
+
+  <!-- 列分隔条：左/中 -->
+  <div class="col-divider" id="divider-left-mid"></div>
+
+  <!-- ====== 中栏：倒计时 + 开关机时间 + 时间设置（核心功能） ====== -->
+  <div class="col-mid" id="col-mid">
+
+    <!-- 倒计时卡片（撑满剩余高度） -->
+    <div class="resizable-card" id="rc-countdown">
+      <div class="card" style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+        <div class="timer-hero">
+          <div id="season-badge" class="season-badge season-summer">☀ 夏季工时</div>
+          <div id="countdown" class="countdown-display normal">--:--:--</div>
+          <div class="countdown-sub" id="countdown-sub">
+            <span id="off-label"></span>
+            <span id="overtime-display" style="display:none;margin-left:16px;color:var(--red);">加班：<span id="overtime-duration">0分0秒</span></span>
+          </div>
+          <div class="progress-bar-wrap">
+            <div class="progress-bar" id="progress-bar" style="width:0%"></div>
+          </div>
+        </div>
+      </div>
+      <div class="card-resize-handle" data-target="rc-countdown"></div>
+    </div>
+
+    <!-- 下班按钮（仅时间到才显示）-->
+    <div id="clock-out-container" class="card" style="display:none;flex-shrink:0;">
+      <div style="text-align:center;padding:10px;">
+        <div style="font-size:15px;color:var(--text);margin-bottom:12px;">🎉 下班时间已到，是否继续加班？</div>
+        <div style="display:flex;gap:10px;justify-content:center;">
+          <button class="btn btn-red" onclick="clockOut()">下班啦 🚪</button>
+          <button class="btn btn-yellow" onclick="continueWorking()">继续加班 🔥</button>
+        </div>
+        <div id="overtime-timer" style="margin-top:14px;font-size:20px;color:var(--red);display:none;">
+          加班时长：<span id="overtime-live">0:00:00</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 手动调整开机时间（位于倒计时与时间信息行之间） -->
+    <div class="card" style="flex-shrink:0;">
+      <div class="section-title">手动调整开机时间</div>
+      <div class="adjust-row">
+        <label>开机：</label>
+        <input type="time" id="boot-input" class="time-input" step="60">
+        <button class="btn btn-primary" onclick="applyBootTime()">✓ 应用</button>
+        <button class="btn btn-ghost" onclick="resetBootTime()">↺ 自动</button>
+        <span class="save-hint" id="save-hint"></span>
+      </div>
+    </div>
+
+    <!-- 时间信息行（可调高度） -->
+    <div class="resizable-card" id="rc-timerow" style="height:180px;">
+      <div class="time-row" style="flex:1;min-height:0;">
+        <div class="time-item">
+          <div class="time-item-label">🖥 开机时间</div>
+          <div class="time-item-val" id="disp-boot">--:--</div>
+          <div class="time-item-sub" id="disp-boot-sub">自动获取</div>
+        </div>
+        <div class="time-item">
+          <div class="time-item-label">⏰ 应下班</div>
+          <div class="time-item-val" id="disp-off">--:--</div>
+          <div class="time-item-sub" id="disp-duration"></div>
+        </div>
+        <div class="time-item">
+          <div class="time-item-label">🕐 当前时间</div>
+          <div class="time-item-val" id="disp-now">--:--</div>
+          <div class="time-item-sub">实时</div>
+        </div>
+        <div class="time-item">
+          <div class="time-item-label">📅 本月记录</div>
+          <div class="time-item-val" id="disp-month">0</div>
+          <div class="time-item-sub">天</div>
+        </div>
+      </div>
+      <div class="card-resize-handle" data-target="rc-timerow"></div>
+    </div>
+
+  </div><!-- /col-mid -->
+
+  <!-- 列分隔条：中/右 -->
+  <div class="col-divider" id="divider-mid-right"></div>
+
+  <!-- ====== 右栏：拍摄项目 + 剪辑项目 ====== -->
+  <div class="col-right" id="col-right">
+
+    <!-- 拍摄项目（可调高度） -->
+    <div class="resizable-card" id="rc-shooting" style="flex:1;min-height:120px;">
+      <div class="project-card" style="height:100%;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <div class="section-title" style="margin-bottom:0;">🎬 拍摄项目</div>
+          <button class="btn btn-ghost" style="padding:3px 9px;font-size:12px;" onclick="selectWorkDir()" title="选择文件夹创建工作目录">📁 工作目录</button>
+        </div>
+        <div class="project-form">
+          <input type="text" id="shooting-title-input" class="project-input" placeholder="视频标题">
+          <input type="date" id="shooting-date-input" class="project-input" style="width:130px;flex:0 0 auto;">
+          <button class="btn btn-primary" onclick="addShootingProjectFromUI()" style="padding:7px 10px;font-size:13px;">+ 添加</button>
+        </div>
+        <div id="shooting-dropzone"
+             ondragover="shootingDropzoneOver(event)"
+             ondragleave="shootingDropzoneLeave(event)"
+             ondrop="shootingDropzoneDrop(event)"
+             style="border:2px dashed var(--border);border-radius:8px;padding:8px 12px;text-align:center;color:var(--sub);font-size:12px;cursor:default;transition:border-color .2s,background .2s;user-select:none;margin-bottom:8px;flex-shrink:0;">
+          📂 拖入脚本文件批量提取文件名
+        </div>
+        <div class="project-list" id="shooting-projects-list"></div>
+      </div>
+      <div class="card-resize-handle" data-target="rc-shooting"></div>
+    </div>
+
+    <!-- 剪辑项目（可调高度） -->
+    <div class="resizable-card" id="rc-editing" style="flex:1;min-height:120px;">
+      <div class="project-card" style="height:100%;">
+        <div class="section-title">✂️ 剪辑项目</div>
+        <div class="project-form">
+          <input type="text" id="editing-title-input" class="project-input" placeholder="视频标题">
+          <input type="date" id="editing-date-input" class="project-input" style="width:130px;flex:0 0 auto;">
+          <button class="btn btn-primary" onclick="addEditingProjectFromUI()" style="padding:7px 10px;font-size:13px;">+ 添加</button>
+        </div>
+        <div class="project-list" id="editing-projects-list"></div>
+      </div>
+      <div class="card-resize-handle" data-target="rc-editing"></div>
+    </div>
+
+  </div><!-- /col-right -->
+
+  <div class="col-bottom" style="display:none;"></div>
+
+</main>
+
+<!-- Toast 容器 -->
+<div id="toast-area"></div>
+
+<!-- 批量导入预览弹窗 -->
+<div id="batch-import-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:999;align-items:center;justify-content:center;">
+  <div style="background:var(--card);border-radius:var(--radius);padding:24px;width:min(680px,96vw);max-height:88vh;display:flex;flex-direction:column;gap:12px;box-shadow:var(--shadow);">
+    <div style="font-size:15px;font-weight:600;">批量添加拍摄项目</div>
+
+    <!-- 工作目录选择行 -->
+    <div style="display:flex;align-items:center;gap:8px;font-size:13px;background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;">
+      <span style="color:var(--sub);white-space:nowrap;">📁 工作目录：</span>
+      <span id="workdir-name" style="flex:1;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;">未选择</span>
+      <button class="btn btn-ghost" style="padding:4px 10px;font-size:12px;flex-shrink:0;" onclick="selectWorkDir()">选择目录</button>
+    </div>
+
+    <!-- 统一日期 -->
+    <div style="display:flex;align-items:center;gap:10px;font-size:13px;">
+      <span style="color:var(--sub);white-space:nowrap;">统一拍摄日期：</span>
+      <input type="date" id="batch-date-input" class="setting-input" style="width:160px;">
+      <span style="font-size:12px;color:var(--sub);">（可单独修改）</span>
+    </div>
+
+    <!-- 表头 -->
+    <div style="display:grid;grid-template-columns:20px 1fr 140px 180px 24px;gap:6px;align-items:center;font-size:11px;color:var(--sub);padding:0 2px;">
+      <span></span>
+      <span>视频标题</span>
+      <span>拍摄日期</span>
+      <span>对应脚本文件</span>
+      <span></span>
+    </div>
+
+    <!-- 项目行列表 -->
+    <div id="batch-title-list" style="overflow-y:auto;max-height:360px;display:flex;flex-direction:column;gap:6px;"></div>
+
+    <div style="display:flex;gap:10px;justify-content:flex-end;padding-top:4px;border-top:1px solid var(--border);">
+      <button class="btn btn-ghost" onclick="batchImportCancel()">取消</button>
+      <button class="btn btn-primary" onclick="batchImportConfirm()">✓ 添加并创建目录</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// 列宽拖拽（左/中 及 中/右 均可拖拽）
+// ============================================================
+(function initColResize() {
+  function setupColDivider(dividerId, leftColId, rightColId, minL, minR) {
+    const divider = document.getElementById(dividerId);
+    const leftCol  = document.getElementById(leftColId);
+    const rightCol = document.getElementById(rightColId);
+    if (!divider || !leftCol || !rightCol) return;
+
+    let startX, startLeftW, startRightW, totalW;
+
+    divider.addEventListener('mousedown', function(e) {
+      e.preventDefault();
+      startX      = e.clientX;
+      startLeftW  = leftCol.getBoundingClientRect().width;
+      startRightW = rightCol.getBoundingClientRect().width;
+      // 记录两列总宽，拖拽时保持总宽不变（不影响其他列）
+      totalW = startLeftW + startRightW;
+      divider.classList.add('dragging');
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+
+      function onMove(e) {
+        const dx = e.clientX - startX;
+        // 理想左宽，双端夹紧：不得小于各自最小值，且两侧之和 = totalW
+        let newL = startLeftW + dx;
+        // 左侧夹紧
+        newL = Math.max(minL, newL);
+        // 右侧夹紧（右侧宽 = totalW - 左侧宽）
+        newL = Math.min(totalW - minR, newL);
+
+        const newR = totalW - newL;
+
+        leftCol.style.flex  = 'none';
+        rightCol.style.flex = 'none';
+        leftCol.style.width  = newL + 'px';
+        rightCol.style.width = newR + 'px';
+      }
+      function onUp() {
+        divider.classList.remove('dragging');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        if (typeof saveLayout === 'function') saveLayout();
+      }
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    // 左栏/中栏分隔条（左栏最小 180px，中栏最小 260px）
+    setupColDivider('divider-left-mid', 'col-left', 'col-mid', 180, 260);
+    // 中栏/右栏分隔条（中栏最小 260px，右栏最小 260px）
+    setupColDivider('divider-mid-right', 'col-mid', 'col-right', 260, 260);
+  });
+})();
+
+// ============================================================
+// 尺寸滑动模块（界面尺寸调节 + localStorage 持久化）
+// ============================================================
+(function initSizePanel() {
+  const SIZE_KEY = 'worktimer_sizes_v1';
+
+  // 默认值
+  const DEFAULTS = {
+    countdown: 72,
+    timenum:   26,
+    statnum:   22,
+    padding:   16,
+    radius:    14,
+    mainpad:   10,
+    projfont:  13,
+  };
+
+  // 当前值（先用默认值，DOMContentLoaded 后从 localStorage 恢复）
+  let sizes = Object.assign({}, DEFAULTS);
+
+  // 应用单项尺寸
+  window.applySize = function(key, rawVal) {
+    const val = parseInt(rawVal, 10);
+    sizes[key] = val;
+
+    // 更新数值标签
+    const valEl = document.getElementById('sz-val-' + key);
+    if (valEl) valEl.textContent = val;
+
+    // 更新滑块轨道填充色
+    updateSliderTrack(key, val);
+
+    // 实际应用到界面
+    switch (key) {
+      case 'countdown':
+        // 倒计时大数字（允许 ResizeObserver 之后再覆盖，故直接设样式变量辅助）
+        document.querySelectorAll('.countdown-display').forEach(el => {
+          el.style.fontSize = val + 'px';
+        });
+        break;
+      case 'timenum':
+        document.querySelectorAll('.time-item-val').forEach(el => {
+          el.style.fontSize = val + 'px';
+        });
+        break;
+      case 'statnum':
+        document.querySelectorAll('.stat-val').forEach(el => {
+          el.style.fontSize = val + 'px';
+        });
+        break;
+      case 'padding':
+        document.querySelectorAll('.card, .card-scroll, .project-card').forEach(el => {
+          el.style.padding = val + 'px ' + Math.round(val * 1.1) + 'px';
+        });
+        break;
+      case 'radius':
+        document.documentElement.style.setProperty('--radius', val + 'px');
+        break;
+      case 'mainpad':
+        const mainEl = document.querySelector('main');
+        if (mainEl) mainEl.style.padding = val + 'px ' + Math.round(val * 1.4) + 'px ' + val + 'px';
+        break;
+      case 'projfont':
+        document.querySelectorAll('.project-list, .project-list *').forEach(el => {
+          el.style.fontSize = val + 'px';
+        });
+        break;
+    }
+
+    // 持久化
+    saveSizes();
+  };
+
+  // 重置所有尺寸为默认值
+  window.resetAllSizes = function() {
+    sizes = Object.assign({}, DEFAULTS);
+    Object.keys(DEFAULTS).forEach(key => {
+      const slider = document.getElementById('sz-' + key);
+      if (slider) slider.value = DEFAULTS[key];
+      applySize(key, DEFAULTS[key]);
+    });
+    saveSizes();
+  };
+
+  function saveSizes() {
+    localStorage.setItem(SIZE_KEY, JSON.stringify(sizes));
+  }
+
+  function loadSizes() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(SIZE_KEY));
+      if (saved) sizes = Object.assign({}, DEFAULTS, saved);
+    } catch(e) {}
+  }
+
+  // 更新滑块轨道左侧填充颜色（进度感）
+  function updateSliderTrack(key, val) {
+    const slider = document.getElementById('sz-' + key);
+    if (!slider) return;
+    const min = parseInt(slider.min, 10);
+    const max = parseInt(slider.max, 10);
+    const pct = Math.round(((val - min) / (max - min)) * 100);
+    slider.style.background =
+      `linear-gradient(to right, var(--accent) 0%, var(--accent) ${pct}%, var(--border) ${pct}%, var(--border) 100%)`;
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    loadSizes();
+
+    // 恢复滑块位置 + 界面值
+    Object.keys(sizes).forEach(key => {
+      const slider = document.getElementById('sz-' + key);
+      if (slider) slider.value = sizes[key];
+      applySize(key, sizes[key]);
+    });
+  });
+})();
+
+// ============================================================
+// 卡片行高拖拽（绝对定位把手，拖拽时改自身高度）
+// ============================================================
+(function initRowResize() {
+  document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.card-resize-handle').forEach(function(handle) {
+      const targetId = handle.dataset.target;
+      const target   = document.getElementById(targetId);
+      if (!target) return;
+
+      const MIN_H = 60;  // 单卡最小高度
+      let startY, startH, maxH;
+
+      handle.addEventListener('mousedown', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        startY = e.clientY;
+        startH = target.getBoundingClientRect().height;
+        if (startH < 10) startH = 200; // 兜底：flex:1撑满时可能返回0
+
+        // 计算上限：父容器可用高度 - 其他兄弟 resizable-card 的最小高度
+        const parent = target.parentElement;
+        if (parent) {
+          const parentH = parent.getBoundingClientRect().height;
+          const siblings = Array.from(parent.children).filter(
+            el => el !== target && el.classList.contains('resizable-card')
+          );
+          const sibMinH = siblings.length * MIN_H;
+          maxH = Math.max(startH, parentH - sibMinH - 16); // 16 = gap 余量
+        } else {
+          maxH = window.innerHeight * 0.9;
+        }
+
+        // 固定当前高度，脱离 flex 伸缩（用 setProperty 覆盖 !important）
+        target.style.setProperty('flex', 'none', 'important');
+        target.style.setProperty('height', startH + 'px', 'important');
+        handle.classList.add('dragging');
+        document.body.style.cursor = 'row-resize';
+        document.body.style.userSelect = 'none';
+
+        function onMove(e) {
+          const dy   = e.clientY - startY;
+          const newH = Math.min(maxH, Math.max(MIN_H, startH + dy));
+          target.style.setProperty('height', newH + 'px', 'important');
+        }
+        function onUp() {
+          handle.classList.remove('dragging');
+          document.body.style.cursor = '';
+          document.body.style.userSelect = '';
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup', onUp);
+          if (typeof saveLayout === 'function') saveLayout();
+        }
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+      });
+    });
+  });
+})();
+
+// ============================================================
+// 倒计时字号：由「界面尺寸」滑块完全控制，不再自动随列宽变化
+// （ResizeObserver 已移除；初始值由 initSizePanel 在 DOMContentLoaded 时写入）
+// ============================================================
+// (initCountdownFontResize removed)
+
+// ============================================================
+// 时间信息行 & 统计卡片字号：由「界面尺寸」滑块完全控制，不再随框高变化
+// （ResizeObserver 已移除；初始值由 initSizePanel 在 DOMContentLoaded 时写入）
+// ============================================================
+// (initCardFontResize removed)
+
+// ============================================================
+// 设置面板控制
+// ============================================================
+function toggleSettingsPanel() {
+  const panel = document.getElementById('settings-panel');
+  panel.classList.toggle('show');
+}
+function switchSpTab(name, btn) {
+  document.querySelectorAll('.sp-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.sp-pane').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('sp-pane-' + name).classList.add('active');
+}
+// 点击外部关闭设置面板
+document.addEventListener('click', function(e) {
+  const wrap = document.getElementById('settings-btn-wrap');
+  if (wrap && !wrap.contains(e.target)) {
+    document.getElementById('settings-panel').classList.remove('show');
+  }
+});
+
+// ============================================================
+// 数据层
+// ============================================================
+const STORE_KEY = 'worktimer_records_v2';
+const SETTINGS_KEY = 'worktimer_settings_v2';
+const BOOT_OVERRIDE_KEY = 'worktimer_boot_override';
+const SHOOTING_KEY = 'worktimer_shooting_v2';
+const EDITING_KEY = 'worktimer_editing_v2';
+const LAYOUT_KEY  = 'worktimer_layout_v2';  // 布局状态（列宽比例 + 行高比例）
+
+// 列宽最小值映射（px）
+const COL_MIN_W = { 'col-left': 180, 'col-mid': 260, 'col-right': 260 };
+// 行高最小值（px）
+const CARD_MIN_H = 60;
+
+// 获取 <main> 的内容宽度（不含 padding）
+function getMainContentWidth() {
+  const main = document.querySelector('main');
+  if (!main) return window.innerWidth;
+  const style = getComputedStyle(main);
+  return main.getBoundingClientRect().width
+    - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+}
+
+// 获取列元素的父容器可用高度（即 main 的内容高度）
+function getMainContentHeight() {
+  const main = document.querySelector('main');
+  if (!main) return window.innerHeight;
+  const style = getComputedStyle(main);
+  return main.getBoundingClientRect().height
+    - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
+}
+
+// 保存当前布局到 localStorage（存"比例"而非绝对 px）
+function saveLayout() {
+  const mainW = getMainContentWidth();
+  const mainH = getMainContentHeight();
+  const layout = { _mainW: mainW, _mainH: mainH };
+
+  // 列宽比例（相对 mainW）
+  ['col-left','col-mid','col-right'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el && mainW > 0) {
+      const w = el.getBoundingClientRect().width;
+      layout[id + '_ratio'] = w / mainW;  // 0~1
+    }
+  });
+
+  // 各 resizable-card 高度比例（相对各自父列的 mainH）
+  ['rc-calendar','rc-stats','rc-countdown','rc-timerow','rc-shooting','rc-editing'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el && mainH > 0) {
+      const h = el.getBoundingClientRect().height;
+      if (h > 10) layout[id + '_ratio'] = h / mainH;  // 0~1
+    }
+  });
+
+  localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout));
+}
+
+// 从 localStorage 恢复布局，按当前 main 尺寸换算实际 px
+function restoreLayout() {
+  try {
+    const layout = JSON.parse(localStorage.getItem(LAYOUT_KEY));
+    if (!layout) return;
+
+    const mainW = getMainContentWidth();
+    const mainH = getMainContentHeight();
+
+    // 恢复列宽
+    ['col-left','col-mid','col-right'].forEach(id => {
+      const el = document.getElementById(id);
+      const ratio = layout[id + '_ratio'];
+      if (el && ratio > 0) {
+        const px = Math.max(COL_MIN_W[id] || 180, Math.round(mainW * ratio));
+        el.style.setProperty('width', px + 'px', 'important');
+        el.style.setProperty('flex',  'none',     'important');
+      }
+    });
+
+    // 恢复行高
+    ['rc-calendar','rc-stats','rc-countdown','rc-timerow','rc-shooting','rc-editing'].forEach(id => {
+      const el = document.getElementById(id);
+      const ratio = layout[id + '_ratio'];
+      if (el && ratio > 0) {
+        const px = Math.max(CARD_MIN_H, Math.round(mainH * ratio));
+        el.style.setProperty('flex',   'none',       'important');
+        el.style.setProperty('height', px + 'px',    'important');
+      }
+    });
+  } catch(e) {}
+}
+
+// 窗口 resize 时，重新按比例换算并应用布局（防抖 150ms）
+(function initResponsiveLayout() {
+  let _t = null;
+  window.addEventListener('resize', function() {
+    clearTimeout(_t);
+    _t = setTimeout(restoreLayout, 150);
+  });
+})();
+
+function loadSettings() {
+  try { return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}; } catch { return {}; }
+}
+function saveSettings() {
+  const s = {
+    summerStart: +document.getElementById('set-summer-start').value,
+    summerEnd:   +document.getElementById('set-summer-end').value,
+    summerMin:   +document.getElementById('set-summer-min').value,
+    winterMin:   +document.getElementById('set-winter-min').value,
+  };
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
+  recalculate();
+  showToast('设置已保存', 'success');
+}
+function initSettings() {
+  const s = loadSettings();
+  document.getElementById('set-summer-start').value = s.summerStart || 4;
+  document.getElementById('set-summer-end').value   = s.summerEnd   || 10;
+  document.getElementById('set-summer-min').value   = s.summerMin   || 530;
+  document.getElementById('set-winter-min').value   = s.winterMin   || 500;
+}
+
+function getWorkDuration(date) {
+  const s = loadSettings();
+  const m = date.getMonth() + 1;
+  const ss = s.summerStart || 4;
+  const se = s.summerEnd   || 10;
+  const smins = s.summerMin || 530;
+  const wmins = s.winterMin || 500;
+  if (m >= ss && m <= se) {
+    return { season:'夏季', minutes: smins, label: formatMinutes(smins), badge:'summer' };
+  } else {
+    return { season:'冬季', minutes: wmins, label: formatMinutes(wmins), badge:'winter' };
+  }
+}
+function formatMinutes(m) {
+  const h = Math.floor(m/60), mm = m%60;
+  return mm > 0 ? `${h}小时${mm}分` : `${h}小时`;
+}
+
+function loadRecords() {
+  try { return JSON.parse(localStorage.getItem(STORE_KEY)) || []; } catch { return []; }
+}
+function saveRecords(recs) {
+  localStorage.setItem(STORE_KEY, JSON.stringify(recs));
+}
+function getTodayStr() {
+  return new Date().toLocaleDateString('zh-CN',{year:'numeric',month:'2-digit',day:'2-digit'}).replace(/\//g,'-');
+}
+function getTodayRecord() {
+  const today = getTodayStr();
+  return loadRecords().find(r => r.date === today);
+}
+
+// ============================================================
+// 拍摄项目管理
+// ============================================================
+function loadShootingProjects() {
+  try { return JSON.parse(localStorage.getItem(SHOOTING_KEY)) || []; } catch { return []; }
+}
+function saveShootingProjects(projects) {
+  localStorage.setItem(SHOOTING_KEY, JSON.stringify(projects));
+}
+function addShootingProject(title, date) {
+  const projects = loadShootingProjects();
+  projects.push({
+    id: Date.now(),
+    title: title,
+    shootingDate: date,
+    createdAt: new Date().toISOString()
+  });
+  saveShootingProjects(projects);
+  return projects;
+}
+
+// ============================================================
+// 剪辑项目管理
+// ============================================================
+function loadEditingProjects() {
+  try { return JSON.parse(localStorage.getItem(EDITING_KEY)) || []; } catch { return []; }
+}
+function saveEditingProjects(projects) {
+  localStorage.setItem(EDITING_KEY, JSON.stringify(projects));
+}
+function addEditingProject(title, shootingDate) {
+  const projects = loadEditingProjects();
+  projects.push({
+    id: Date.now(),
+    title: title,
+    shootingDate: shootingDate,
+    editingCompleted: false,
+    editingCompletedDate: null,
+    createdAt: new Date().toISOString()
+  });
+  saveEditingProjects(projects);
+  return projects;
+}
+
+// 自动将拍摄项目转入剪辑项目
+function autoTransferToEditing() {
+  const today = getTodayStr();
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = yesterday.toLocaleDateString('zh-CN',{year:'numeric',month:'2-digit',day:'2-digit'}).replace(/\//g,'-');
+
+  const shootingProjects = loadShootingProjects();
+  const editingProjects = loadEditingProjects();
+
+  let transferred = 0;
+  shootingProjects.forEach(project => {
+    // 检查这个拍摄项目是否已经在剪辑项目中
+    const exists = editingProjects.find(ep => ep.shootingDate === project.shootingDate && ep.title === project.title);
+    if (!exists && project.shootingDate === yesterdayStr) {
+      // 昨天的拍摄项目今天转入剪辑
+      addEditingProject(project.title, project.shootingDate);
+      transferred++;
+    }
+  });
+
+  return transferred;
+}
+
+// ============================================================
+// 开机时间逻辑
+// ============================================================
+// 尝试通过 performance.timing 估算页面加载时间（作为启动参考）
+// 实际开机时间需要后端支持，这里做"首次今日打开时间"的记录
+let bootTimeObj = null;    // Date 对象
+let offTimeObj  = null;    // Date 对象
+
+function getOrCreateTodayRecord() {
+  const today = getTodayStr();
+  let recs = loadRecords();
+  let rec = recs.find(r => r.date === today);
+
+  // 检查是否有今日手动override
+  const override = localStorage.getItem(BOOT_OVERRIDE_KEY);
+  let overrideDate = null, overrideTime = null;
+  if (override) {
+    try {
+      const ov = JSON.parse(override);
+      if (ov.date === today) { overrideDate = ov.date; overrideTime = ov.time; }
+    } catch {}
+  }
+
+  if (!rec) {
+    // 新建今日记录
+    // 开机时间：优先用override，其次用首次打开时间
+    const bootStr = overrideTime || getCurrentTimeStr();
+    const wd = getWorkDuration(new Date());
+    const bootDate = todayWithTime(bootStr);
+    const offDate  = new Date(bootDate.getTime() + wd.minutes * 60000);
+    rec = {
+      date:     today,
+      weekday:  getWeekday(new Date()),
+      boot:     bootStr,
+      off:      formatTime(offDate),
+      season:   wd.season,
+      duration: wd.label,
+      note:     '',
+      created:  new Date().toISOString(),
+      manual:   !!overrideTime,
+    };
+    recs.push(rec);
+    saveRecords(recs);
+  } else if (overrideTime && rec.boot !== overrideTime) {
+    // 有新的手动override，更新记录
+    const wd = getWorkDuration(new Date());
+    const bootDate = todayWithTime(overrideTime);
+    const offDate  = new Date(bootDate.getTime() + wd.minutes * 60000);
+    rec.boot   = overrideTime;
+    rec.off    = formatTime(offDate);
+    rec.manual = true;
+    recs = recs.map(r => r.date === today ? rec : r);
+    saveRecords(recs);
+  }
+  return rec;
+}
+
+function todayWithTime(timeStr) {
+  const [h,m] = timeStr.split(':').map(Number);
+  const d = new Date();
+  d.setHours(h, m, 0, 0);
+  return d;
+}
+
+function getCurrentTimeStr() {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+
+function formatTime(d) {
+  return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+
+function getWeekday(d) {
+  return ['周日','周一','周二','周三','周四','周五','周六'][d.getDay()];
+}
+
+function recalculate() {
+  const rec = getOrCreateTodayRecord();
+  bootTimeObj = todayWithTime(rec.boot);
+  offTimeObj  = todayWithTime(rec.off);
+
+  const wd = getWorkDuration(new Date());
+  // 更新季节徽章
+  const badge = document.getElementById('season-badge');
+  badge.textContent = wd.badge === 'summer' ? '☀ 夏季工时' : '❄ 冬季工时';
+  badge.className = `season-badge season-${wd.badge}`;
+
+  // 更新信息块
+  document.getElementById('disp-boot').textContent = rec.boot;
+  document.getElementById('disp-boot-sub').textContent = rec.manual ? '手动设置' : '自动记录';
+  document.getElementById('disp-off').textContent  = rec.off;
+  document.getElementById('disp-duration').textContent = `${wd.season} · ${wd.label}`;
+
+  // boot input 初始值
+  document.getElementById('boot-input').value = rec.boot;
+
+  updateStats();
+}
+
+// ============================================================
+// 手动调整开机时间
+// ============================================================
+function applyBootTime() {
+  const val = document.getElementById('boot-input').value;
+  if (!val) { showToast('请输入时间', 'warn'); return; }
+  const today = getTodayStr();
+  localStorage.setItem(BOOT_OVERRIDE_KEY, JSON.stringify({ date: today, time: val }));
+
+  // 更新记录
+  let recs = loadRecords();
+  const wd = getWorkDuration(new Date());
+  const bootDate = todayWithTime(val);
+  const offDate  = new Date(bootDate.getTime() + wd.minutes * 60000);
+  const offStr   = formatTime(offDate);
+
+  let rec = recs.find(r => r.date === today);
+  if (rec) {
+    rec.boot = val; rec.off = offStr; rec.manual = true;
+    saveRecords(recs);
+  } else {
+    // 直接create
+    rec = {
+      date: today, weekday: getWeekday(new Date()),
+      boot: val, off: offStr,
+      season: wd.season, duration: wd.label,
+      note: '', created: new Date().toISOString(), manual: true
+    };
+    recs.push(rec);
+    saveRecords(recs);
+  }
+
+  bootTimeObj = bootDate;
+  offTimeObj  = offDate;
+
+  document.getElementById('disp-boot').textContent = val;
+  document.getElementById('disp-boot-sub').textContent = '手动设置';
+  document.getElementById('disp-off').textContent  = offStr;
+  document.getElementById('save-hint').textContent = `✓ 已保存，应下班 ${offStr}`;
+  setTimeout(()=>{ document.getElementById('save-hint').textContent=''; }, 4000);
+
+  renderHistory();
+  showToast(`开机时间已更新为 ${val}，应下班 ${offStr}`, 'success');
+}
+
+function resetBootTime() {
+  localStorage.removeItem(BOOT_OVERRIDE_KEY);
+  const today = getTodayStr();
+  // 删除今日记录让其重建
+  let recs = loadRecords().filter(r => r.date !== today);
+  saveRecords(recs);
+  recalculate();
+  renderHistory();
+  showToast('已重置为自动记录的开机时间', 'info');
+}
+
+// ============================================================
+// 倒计时刷新
+// ============================================================
+let reminderShown = false;
+let overtimeMode = false; // 是否进入加班模式
+let overtimeStartTime = null; // 加班开始时间
+
+function tick() {
+  const now = new Date();
+  // 更新当前时间显示
+  document.getElementById('disp-now').textContent = formatTime(now);
+  document.getElementById('current-time').textContent =
+    now.toLocaleTimeString('zh-CN', {hour12:false});
+
+  if (!offTimeObj) return;
+
+  const diff = offTimeObj - now;  // ms
+  const totalWork = offTimeObj - bootTimeObj;
+
+  const el = document.getElementById('countdown');
+  const sub = document.getElementById('off-label');
+  const bar = document.getElementById('progress-bar');
+  const overtimeDisplay = document.getElementById('overtime-display');
+  const overtimeDurationEl = document.getElementById('overtime-duration');
+  const overtimeLiveEl = document.getElementById('overtime-live');
+  const clockOutContainer = document.getElementById('clock-out-container');
+  const overtimeTimerEl = document.getElementById('overtime-timer');
+
+  if (diff <= 0) {
+    // 已到下班或超时
+    const over = Math.abs(diff);
+    const hh = String(Math.floor(over/3600000)).padStart(2,'0');
+    const mm = String(Math.floor(over%3600000/60000)).padStart(2,'0');
+    const ss = String(Math.floor(over%60000/1000)).padStart(2,'0');
+
+    // 如果进入加班模式
+    if (overtimeMode && overtimeStartTime) {
+      // 实时加班时长
+      const overtimeDiff = now - overtimeStartTime;
+      const otHours = Math.floor(overtimeDiff / 3600000);
+      const otMinutes = Math.floor((overtimeDiff % 3600000) / 60000);
+      const otSeconds = Math.floor((overtimeDiff % 60000) / 1000);
+
+      overtimeDisplay.style.display = 'inline';
+      overtimeDurationEl.textContent = `${otHours}小时${otMinutes}分${otSeconds}秒`;
+      overtimeLiveEl.textContent = `${String(otHours).padStart(2,'0')}:${String(otMinutes).padStart(2,'0')}:${String(otSeconds).padStart(2,'0')}`;
+      overtimeTimerEl.style.display = 'block';
+    } else {
+      overtimeDisplay.style.display = 'none';
+    }
+
+    el.textContent = `+${hh}:${mm}:${ss}`;
+    el.className = 'countdown-display overdue';
+    sub.innerHTML = `<span style="color:var(--red)">已超时 ${hh}小时${mm}分</span>（下班时间：${formatTime(offTimeObj)}）`;
+    bar.style.width = '100%';
+    bar.style.background = 'linear-gradient(90deg,var(--red),#ff6b6b)';
+
+    // 显示下班按钮
+    if (!reminderShown) {
+      reminderShown = true;
+      showReminderModal();
+    }
+
+    // 显示加班选择界面
+    if (!overtimeMode) {
+      clockOutContainer.style.display = 'block';
+    }
+  } else {
+    // 还在上班时间内
+    overtimeDisplay.style.display = 'none';
+    clockOutContainer.style.display = 'none';
+    overtimeTimerEl.style.display = 'none';
+
+    const hours = String(Math.floor(diff/3600000)).padStart(2,'0');
+    const minutes = String(Math.floor(diff%3600000/60000)).padStart(2,'0');
+    const seconds = String(Math.floor(diff%60000/1000)).padStart(2,'0');
+    el.textContent = `${hours}:${minutes}:${seconds}`;
+
+    const progress = totalWork > 0 ? Math.min(100, (totalWork - diff) / totalWork * 100) : 0;
+    bar.style.width = progress + '%';
+    bar.style.background = 'linear-gradient(90deg,var(--accent),var(--accent2))';
+
+    if (diff <= 30 * 60000) {
+      el.className = 'countdown-display soon';
+      sub.innerHTML = `距下班还有 <span>${Math.ceil(diff/60000)}</span> 分钟（${formatTime(offTimeObj)} 下班）`;
+    } else {
+      el.className = 'countdown-display normal';
+      sub.innerHTML = `今日应下班时间：<span>${formatTime(offTimeObj)}</span>`;
+    }
+  }
+}
+
+// ============================================================
+// 下班提醒弹窗
+// ============================================================
+function showReminderModal() {
+  const rec = getTodayRecord();
+  const detail = `开机时间：${rec ? rec.boot : '--'}<br>工时：${rec ? rec.duration : '--'}（${rec ? rec.season : '--'}）<br>应下班：${rec ? rec.off : '--'}<br><br>辛苦了，该下班啦！🎉`;
+  document.getElementById('modal-detail').innerHTML = detail;
+  document.getElementById('reminder-modal').classList.add('show');
+
+  // 尝试浏览器通知
+  if (Notification && Notification.permission === 'granted') {
+    new Notification('⏰ 下班时间到！', {
+      body: `今日工时 ${rec ? rec.duration : ''} 已满，下班啦！`,
+      icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">⏱</text></svg>'
+    });
+  }
+}
+
+function dismissReminder() {
+  document.getElementById('reminder-modal').classList.remove('show');
+}
+
+// 下班按钮 - 结束计时
+function clockOut() {
+  if (!confirm('确定下班吗？这将结束今天的计时并记录实际下班时间。')) return;
+
+  const now = new Date();
+  const today = getTodayStr();
+  let recs = loadRecords();
+  const rec = recs.find(r => r.date === today);
+
+  if (rec) {
+    // 记录实际下班时间
+    rec.actualOff = formatTime(now);
+
+    // 如果在加班模式下，记录加班时长
+    if (overtimeMode && overtimeStartTime) {
+      const overtimeDiff = now - overtimeStartTime;
+      const otMinutes = Math.floor(overtimeDiff / 60000);
+      const otHours = Math.floor(otMinutes / 60);
+      const otMins = otMinutes % 60;
+
+      rec.overtime = `${otHours}小时${otMins}分`;
+      rec.overtimeStart = formatTime(overtimeStartTime);
+      rec.overtimeEnd = formatTime(now);
+
+      showToast(`已记录加班时长：${rec.overtime}`, 'info');
+    }
+
+    saveRecords(recs);
+    renderHistory();
+  }
+
+  // 隐藏加班选择界面
+  document.getElementById('clock-out-container').style.display = 'none';
+  overtimeMode = false;
+  overtimeStartTime = null;
+
+  showToast('打卡下班，辛苦了！🎉', 'success');
+}
+
+// 继续加班按钮
+function continueWorking() {
+  overtimeMode = true;
+  overtimeStartTime = overtimeStartTime || new Date(); // 第一次点击时记录开始时间
+
+  document.getElementById('clock-out-container').style.display = 'none';
+  showToast('已开始加班计时 🔥', 'info');
+}
+
+// ============================================================
+// 日历功能
+// ============================================================
+let currentCalendarDate = new Date();
+
+function renderCalendar() {
+  const year = currentCalendarDate.getFullYear();
+  const month = currentCalendarDate.getMonth();
+  const today = new Date();
+
+  // 更新标题
+  document.getElementById('calendar-title').textContent = `${year}年${month + 1}月`;
+
+  // 获取本月第一天和最后一天
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  const startDay = firstDay.getDay(); // 0-6, 0=周日
+  const totalDays = lastDay.getDate();
+
+  // 获取本月工作记录
+  const recs = loadRecords();
+  const workDays = recs.map(r => r.date);
+
+  // 获取本月拍摄日期
+  const shootingProjects = loadShootingProjects();
+  const shootingDays = shootingProjects.map(p => p.shootingDate);
+
+  // 生成日历
+  const container = document.getElementById('calendar-days');
+  let html = '';
+
+  // 填充前面的空白
+  for (let i = 0; i < startDay; i++) {
+    html += '<div class="calendar-day empty"></div>';
+  }
+
+  // 填充日期
+  for (let day = 1; day <= totalDays; day++) {
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const isToday = dateStr === getTodayStr();
+    const hasWork = workDays.includes(dateStr);
+    const isShootingDay = shootingDays.includes(dateStr);
+
+    let classes = 'calendar-day';
+    if (isToday) classes += ' today';
+    if (hasWork) classes += ' has-work';
+    if (isShootingDay) classes += ' shooting-day';
+
+    html += `<div class="${classes}" onclick="showDateDetail('${dateStr}')">${day}</div>`;
+  }
+
+  container.innerHTML = html;
+}
+
+function changeMonth(delta) {
+  currentCalendarDate.setMonth(currentCalendarDate.getMonth() + delta);
+  renderCalendar();
+}
+
+function showDateDetail(dateStr) {
+  const recs = loadRecords();
+  const rec = recs.find(r => r.date === dateStr);
+
+  const shootingProjects = loadShootingProjects();
+  const shootingOnDate = shootingProjects.filter(p => p.shootingDate === dateStr);
+
+  const editingProjects = loadEditingProjects();
+  const editingOnDate = editingProjects.filter(p => p.shootingDate === dateStr);
+
+  let content = `<div style="font-size:14px;color:var(--text);margin-bottom:16px;"><strong>日期：</strong>${dateStr}</div>`;
+
+  if (rec) {
+    content += `<div style="background:var(--card2);padding:12px;border-radius:8px;margin-bottom:12px;">
+      <div style="font-size:14px;color:var(--text);margin-bottom:8px;"><strong>工作记录</strong></div>
+      <div style="font-size:13px;color:var(--sub);">
+        开机时间：${rec.boot}<br>
+        应下班：${rec.off}<br>
+        工时：${rec.duration}（${rec.season}）${rec.actualOff ? `<br>实际下班：${rec.actualOff}` : ''}
+      </div>
+    </div>`;
+  } else {
+    content += `<div style="background:var(--card2);padding:12px;border-radius:8px;margin-bottom:12px;">
+      <div style="font-size:13px;color:var(--sub);">暂无工作记录</div>
+    </div>`;
+  }
+
+  if (shootingOnDate.length > 0) {
+    content += `<div style="background:var(--card2);padding:12px;border-radius:8px;margin-bottom:12px;">
+      <div style="font-size:14px;color:var(--text);margin-bottom:8px;"><strong>拍摄项目</strong></div>
+      ${shootingOnDate.map(p => `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:13px;color:var(--sub);">
+          <span>• ${p.title}</span>
+          <button onclick="deleteShootingProjectFromDetail(${p.id}, '${dateStr}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;padding:2px 6px;" title="删除此拍摄项目">✕</button>
+        </div>`).join('')}
+    </div>`;
+  }
+
+  if (editingOnDate.length > 0) {
+    content += `<div style="background:var(--card2);padding:12px;border-radius:8px;margin-bottom:12px;">
+      <div style="font-size:14px;color:var(--text);margin-bottom:8px;"><strong>剪辑项目</strong></div>
+      ${editingOnDate.map(p => `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:13px;color:var(--sub);">
+          <div>
+            • ${p.title} ${p.editingCompleted ? '✓' : '✗'}
+            ${p.editingCompletedDate ? `<span style="font-size:12px;">（完成日期：${p.editingCompletedDate}）</span>` : ''}
+          </div>
+          <button onclick="deleteEditingProjectFromDetail(${p.id}, '${dateStr}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;padding:2px 6px;" title="删除此剪辑项目">✕</button>
+        </div>`).join('')}
+    </div>`;
+  }
+
+  document.getElementById('date-detail-title').textContent = `${dateStr} 详情`;
+  document.getElementById('date-detail-content').innerHTML = content;
+  document.getElementById('date-detail-modal').classList.add('show');
+}
+
+function closeDateDetailModal() {
+  document.getElementById('date-detail-modal').classList.remove('show');
+}
+
+// 从日历详情弹窗删除拍摄项目
+function deleteShootingProjectFromDetail(id, dateStr) {
+  if (!confirm('确定删除这个拍摄项目吗？')) return;
+
+  const projects = loadShootingProjects().filter(p => p.id !== id);
+  saveShootingProjects(projects);
+  renderShootingProjects();
+  renderCalendar(); // 更新日历标注
+
+  // 刷新日历详情弹窗
+  showDateDetail(dateStr);
+
+  showToast('拍摄项目已删除', 'info');
+}
+
+// 从日历详情弹窗删除剪辑项目
+function deleteEditingProjectFromDetail(id, dateStr) {
+  if (!confirm('确定删除这个剪辑项目吗？对应的拍摄项目也会同步删除。')) return;
+
+  // 获取要删除的剪辑项目信息
+  const editingProjects = loadEditingProjects();
+  const projectToDelete = editingProjects.find(p => p.id === id);
+
+  if (!projectToDelete) return;
+
+  // 删除剪辑项目
+  const newEditingProjects = editingProjects.filter(p => p.id !== id);
+  saveEditingProjects(newEditingProjects);
+
+  // 同步删除对应的拍摄项目（根据标题和拍摄日期匹配）
+  const shootingProjects = loadShootingProjects();
+  const title = projectToDelete.title;
+  const shootingDate = projectToDelete.shootingDate;
+
+  // 找到并删除匹配的拍摄项目
+  const newShootingProjects = shootingProjects.filter(p =>
+    !(p.title === title && p.shootingDate === shootingDate)
+  );
+
+  // 检查是否有拍摄项目被删除
+  if (newShootingProjects.length !== shootingProjects.length) {
+    saveShootingProjects(newShootingProjects);
+    renderShootingProjects();
+  }
+
+  // 更新日历
+  renderCalendar();
+
+  // 刷新日历详情弹窗
+  showDateDetail(dateStr);
+
+  renderEditingProjects();
+  showToast(`剪辑项目已删除，对应的拍摄项目已同步删除`, 'info');
+}
+
+// ============================================================
+// 拍摄项目UI
+// ============================================================
+function renderShootingProjects() {
+  const projects = loadShootingProjects();
+  const container = document.getElementById('shooting-projects-list');
+
+  // 计算本周的日期范围
+  const now = new Date();
+  const dayOfWeek = now.getDay() || 7; // 0=周日, 7=周日
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - dayOfWeek + 1);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+
+  const formatDate = (d) => {
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  };
+
+  const weekStart = formatDate(monday);
+  const weekEnd = formatDate(sunday);
+
+  // 只显示本周的拍摄项目
+  const thisWeekProjects = projects.filter(p => p.shootingDate >= weekStart && p.shootingDate <= weekEnd);
+
+  if (thisWeekProjects.length === 0) {
+    container.innerHTML = '<p style="color:var(--sub);font-size:13px;padding:10px 0;">本周暂无拍摄项目<br><span style="font-size:12px;">点击日历日期查看历史拍摄计划</span></p>';
+    return;
+  }
+
+  container.innerHTML = thisWeekProjects.map(project => `
+    <div class="project-item">
+      <span class="project-title">${project.title}</span>
+      <span class="project-date">拍摄：${project.shootingDate}</span>
+      <button class="project-delete-btn" onclick="deleteShootingProject(${project.id})">✕</button>
+    </div>
+  `).join('') + `<p style="color:var(--sub);font-size:12px;margin-top:10px;">仅显示本周（${weekStart} 至 ${weekEnd}）的拍摄计划，点击日历日期查看完整历史</p>`;
+}
+
+function addShootingProjectFromUI() {
+  const title = document.getElementById('shooting-title-input').value.trim();
+  const date = document.getElementById('shooting-date-input').value;
+
+  if (!title) { showToast('请输入视频标题', 'warn'); return; }
+  if (!date) { showToast('请选择拍摄日期', 'warn'); return; }
+
+  addShootingProject(title, date);
+  renderShootingProjects();
+  renderCalendar(); // 更新日历标注
+
+  document.getElementById('shooting-title-input').value = '';
+  document.getElementById('shooting-date-input').value = '';
+
+  showToast('拍摄项目已添加', 'success');
+}
+
+// ============================================================
+// 批量拖放导入脚本文件名 + File System Access API 建目录
+// ============================================================
+
+/** 去掉文件扩展名，保留文件名主体 */
+function stripExtension(filename) {
+  return filename.replace(/\.[^/.]+$/, '').trim();
+}
+
+// 当前批量持有的 File 对象列表
+let _batchFiles = [];
+// 工作目录句柄（FileSystemDirectoryHandle），跨次保留
+let _workDirHandle = null;
+
+/** 选择工作目录（可在弹窗内调用，也可从拍摄模块提前调用） */
+async function selectWorkDir() {
+  if (!window.showDirectoryPicker) {
+    showToast('当前浏览器不支持文件系统写入，请使用 Chrome/Edge', 'warn'); return;
+  }
+  try {
+    _workDirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+    // 更新所有工作目录显示占位
+    document.querySelectorAll('#workdir-name').forEach(el => {
+      el.textContent = _workDirHandle.name;
+    });
+    showToast('工作目录已选择：' + _workDirHandle.name, 'success');
+  } catch (err) {
+    if (err.name !== 'AbortError') showToast('选择目录失败：' + err.message, 'warn');
+  }
+}
+
+function shootingDropzoneOver(e) {
+  e.preventDefault();
+  const dz = document.getElementById('shooting-dropzone');
+  dz.style.borderColor = 'var(--accent)';
+  dz.style.background = 'rgba(79,142,247,.07)';
+  dz.style.color = 'var(--accent)';
+}
+
+function shootingDropzoneLeave(e) {
+  e.preventDefault();
+  const dz = document.getElementById('shooting-dropzone');
+  dz.style.borderColor = 'var(--border)';
+  dz.style.background = '';
+  dz.style.color = 'var(--sub)';
+}
+
+function shootingDropzoneDrop(e) {
+  e.preventDefault();
+  shootingDropzoneLeave(e);
+
+  const files = Array.from(e.dataTransfer.files).filter(f => stripExtension(f.name).length > 0);
+  if (!files.length) { showToast('未能提取到有效文件名', 'warn'); return; }
+
+  openBatchImportModal(files);
+}
+
+/** 打开批量预览弹窗
+ *  @param {File[]} files
+ */
+function openBatchImportModal(files) {
+  _batchFiles = files;
+  const today = getTodayStr();
+  document.getElementById('batch-date-input').value = today;
+
+  // 更新工作目录显示
+  document.getElementById('workdir-name').textContent =
+    _workDirHandle ? _workDirHandle.name : '未选择';
+
+  // 构建脚本文件下拉选项（每行都可选任意文件，或不对应）
+  const fileOptions = files.map((f, fi) =>
+    `<option value="${fi}">${f.name}</option>`
+  ).join('');
+
+  const list = document.getElementById('batch-title-list');
+  list.innerHTML = files.map((f, i) => {
+    const title = stripExtension(f.name).replace(/"/g, '&quot;');
+    return `
+    <div style="display:grid;grid-template-columns:20px 1fr 140px 180px 24px;gap:6px;align-items:center;" id="batch-row-${i}">
+      <span style="color:var(--sub);font-size:12px;text-align:right;">${i+1}.</span>
+      <input type="text" class="project-input" style="font-size:13px;min-width:0;"
+        value="${title}" id="batch-title-${i}">
+      <input type="date" class="setting-input" style="font-size:12px;"
+        id="batch-date-${i}" value="${today}">
+      <select class="setting-input" style="font-size:12px;min-width:0;" id="batch-script-${i}">
+        <option value="">— 不对应脚本 —</option>
+        ${fileOptions}
+      </select>
+      <button style="background:none;border:none;color:var(--sub);cursor:pointer;font-size:15px;padding:0 2px;line-height:1;"
+        onclick="batchRemoveItem(${i})" title="移除">✕</button>
+    </div>`;
+  }).join('');
+
+  // 默认同序号对应
+  files.forEach((_, i) => {
+    const sel = document.getElementById(`batch-script-${i}`);
+    if (sel) sel.value = String(i);
+  });
+
+  // 统一日期联动
+  document.getElementById('batch-date-input').oninput = function() {
+    const val = this.value;
+    files.forEach((_, i) => {
+      const el = document.getElementById(`batch-date-${i}`);
+      if (el && !el.dataset.overridden) el.value = val;
+    });
+  };
+  files.forEach((_, i) => {
+    const el = document.getElementById(`batch-date-${i}`);
+    if (el) el.addEventListener('change', () => { el.dataset.overridden = '1'; });
+  });
+
+  document.getElementById('batch-import-modal').style.display = 'flex';
+}
+
+/** 移除某一行 */
+function batchRemoveItem(i) {
+  const row = document.getElementById(`batch-row-${i}`);
+  if (row) row.remove();
+}
+
+/** 确认批量添加并创建目录结构 */
+async function batchImportConfirm() {
+  const list = document.getElementById('batch-title-list');
+  const rows = list.querySelectorAll('[id^="batch-row-"]');
+
+  const entries = [];
+  let skipped = 0;
+
+  rows.forEach(row => {
+    const i = row.id.replace('batch-row-', '');
+    const title = (document.getElementById(`batch-title-${i}`) || {}).value?.trim();
+    const date  = (document.getElementById(`batch-date-${i}`)  || {}).value;
+    const scriptIdx = (document.getElementById(`batch-script-${i}`) || {}).value;
+
+    if (!title) { skipped++; return; }
+    if (!date)  { skipped++; showToast(`"${title}" 未填日期，已跳过`, 'warn'); return; }
+
+    const exists = loadShootingProjects().find(p => p.title === title && p.shootingDate === date);
+    if (exists) { skipped++; return; }
+
+    entries.push({
+      title,
+      date,
+      scriptFile: (scriptIdx !== '' && _batchFiles[+scriptIdx]) ? _batchFiles[+scriptIdx] : null
+    });
+  });
+
+  if (!entries.length) {
+    showToast('没有新增项目（可能已存在或日期为空）', 'warn');
+    batchImportCancel();
+    return;
+  }
+
+  // 写入项目数据
+  entries.forEach(e => addShootingProject(e.title, e.date));
+
+  // 创建目录结构
+  if (_workDirHandle) {
+    try {
+      await buildFolderStructure(_workDirHandle, entries);
+      showToast(
+        `已添加 ${entries.length} 个项目并创建目录结构${skipped ? `（${skipped} 条跳过）` : ''}`,
+        'success'
+      );
+    } catch (err) {
+      showToast(`项目已添加，但目录创建失败：${err.message}`, 'warn');
+    }
+  } else {
+    showToast(
+      `已添加 ${entries.length} 个项目${skipped ? `（${skipped} 条跳过）` : ''}（未选择工作目录，已跳过建文件夹）`,
+      'success'
+    );
+  }
+
+  batchImportCancel();
+  renderShootingProjects();
+  renderCalendar();
+}
+
+/**
+ * 按日期/标题建目录，把脚本文件写入对应"脚本"文件夹
+ * 目录结构：根目录 / 拍摄日期 / 视频标题 / { 脚本, 素材, 成片 }
+ */
+async function buildFolderStructure(rootHandle, entries) {
+  // 按日期分组
+  const byDate = {};
+  entries.forEach(e => {
+    (byDate[e.date] = byDate[e.date] || []).push(e);
+  });
+
+  for (const [date, items] of Object.entries(byDate)) {
+    const dateDir = await rootHandle.getDirectoryHandle(date, { create: true });
+    for (const item of items) {
+      const projDir   = await dateDir.getDirectoryHandle(item.title, { create: true });
+      const scriptDir = await projDir.getDirectoryHandle('脚本', { create: true });
+      await projDir.getDirectoryHandle('素材', { create: true });
+      await projDir.getDirectoryHandle('成片', { create: true });
+
+      if (item.scriptFile) {
+        const fh = await scriptDir.getFileHandle(item.scriptFile.name, { create: true });
+        const wr = await fh.createWritable();
+        await wr.write(item.scriptFile);
+        await wr.close();
+      }
+    }
+  }
+}
+
+/** 关闭弹窗 */
+function batchImportCancel() {
+  document.getElementById('batch-import-modal').style.display = 'none';
+  document.getElementById('batch-title-list').innerHTML = '';
+  _batchFiles = [];
+}
+
+function deleteShootingProject(id) {
+  if (!confirm('确定删除这个拍摄项目吗？')) return;
+
+  const projects = loadShootingProjects().filter(p => p.id !== id);
+  saveShootingProjects(projects);
+  renderShootingProjects();
+  renderCalendar(); // 更新日历标注
+  showToast('拍摄项目已删除', 'info');
+}
+
+// ============================================================
+// 剪辑项目UI
+// ============================================================
+function renderEditingProjects() {
+  const projects = loadEditingProjects();
+  const container = document.getElementById('editing-projects-list');
+
+  if (projects.length === 0) {
+    container.innerHTML = '<p style="color:var(--sub);font-size:13px;padding:10px 0;">暂无剪辑项目</p>';
+    return;
+  }
+
+  container.innerHTML = projects.map(project => `
+    <div class="project-item ${project.editingCompleted ? 'completed' : ''}">
+      <input type="checkbox" class="project-checkbox"
+             ${project.editingCompleted ? 'checked' : ''}
+             onchange="toggleEditingCompleted(${project.id})">
+      <span class="project-title">${project.title}</span>
+      <span class="project-date">拍摄：${project.shootingDate}</span>
+      ${project.editingCompleted ? `<span class="project-date">剪辑完成：${project.editingCompletedDate}</span>` : ''}
+      <button class="project-delete-btn" onclick="deleteEditingProject(${project.id})">✕</button>
+    </div>
+  `).join('') + `<p style="color:var(--sub);font-size:12px;margin-top:10px;">点击日历日期查看历史拍摄计划</p>`;
+}
+
+function addEditingProjectFromUI() {
+  const title = document.getElementById('editing-title-input').value.trim();
+  const shootingDate = document.getElementById('editing-date-input').value;
+
+  if (!title) { showToast('请输入视频标题', 'warn'); return; }
+  if (!shootingDate) { showToast('请选择拍摄完成日期', 'warn'); return; }
+
+  // 添加剪辑项目（使用选择的拍摄日期）
+  addEditingProject(title, shootingDate);
+  renderEditingProjects();
+
+  // 同时添加到拍摄项目，在选择的拍摄日期创建拍摄计划
+  addShootingProject(title, shootingDate);
+  renderShootingProjects();
+
+  // 更新日历标注（会在选择的拍摄日期显示黄色）
+  renderCalendar();
+
+  document.getElementById('editing-title-input').value = '';
+  document.getElementById('editing-date-input').value = '';
+
+  showToast(`剪辑项目已添加，已在 ${shootingDate} 创建拍摄计划并标注日历`, 'success');
+}
+
+function toggleEditingCompleted(id) {
+  const projects = loadEditingProjects();
+  const project = projects.find(p => p.id === id);
+  if (project) {
+    project.editingCompleted = !project.editingCompleted;
+    project.editingCompletedDate = project.editingCompleted ? getTodayStr() : null;
+    saveEditingProjects(projects);
+    renderEditingProjects();
+  }
+}
+
+function deleteEditingProject(id) {
+  if (!confirm('确定删除这个剪辑项目吗？对应的拍摄项目也会同步删除。')) return;
+
+  // 获取要删除的剪辑项目信息
+  const editingProjects = loadEditingProjects();
+  const projectToDelete = editingProjects.find(p => p.id === id);
+
+  if (!projectToDelete) return;
+
+  // 删除剪辑项目
+  const newEditingProjects = editingProjects.filter(p => p.id !== id);
+  saveEditingProjects(newEditingProjects);
+
+  // 同步删除对应的拍摄项目（根据标题和拍摄日期匹配）
+  const shootingProjects = loadShootingProjects();
+  const title = projectToDelete.title;
+  const shootingDate = projectToDelete.shootingDate;
+
+  // 找到并删除匹配的拍摄项目
+  const newShootingProjects = shootingProjects.filter(p =>
+    !(p.title === title && p.shootingDate === shootingDate)
+  );
+
+  // 检查是否有拍摄项目被删除
+  if (newShootingProjects.length !== shootingProjects.length) {
+    saveShootingProjects(newShootingProjects);
+    renderShootingProjects();
+  }
+
+  // 更新日历
+  renderCalendar();
+
+  renderEditingProjects();
+  showToast(`剪辑项目已删除，对应的拍摄项目已同步删除`, 'info');
+}
+
+// 请求通知权限
+function requestNotifPermission() {
+  if (Notification && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+}
+
+// ============================================================
+// 历史记录渲染
+// ============================================================
+function renderHistory() {
+  const filterMonth = document.getElementById('filter-month').value; // yyyy-MM
+  let recs = loadRecords();
+
+  if (filterMonth) {
+    recs = recs.filter(r => r.date.startsWith(filterMonth));
+  }
+
+  recs = [...recs].reverse(); // 最新在前
+
+  const tbody = document.getElementById('history-tbody');
+  if (recs.length === 0) {
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="7">暂无记录</td></tr>';
+    return;
+  }
+
+  const today = getTodayStr();
+  tbody.innerHTML = recs.map((r, idx) => {
+    const isToday = r.date === today;
+    const dateClass = isToday ? 'tag-today' : '';
+    const seasonClass = r.season === '夏季' ? 'tag-summer' : 'tag-winter';
+    // 季节用小图标显示在工时列前，节省列宽
+    const seasonIcon = r.season === '夏季' ? '<span class="tag-summer" title="夏季">☀</span>' : '<span style="color:#63b3ed;" title="冬季">❄</span>';
+    return `
+    <tr>
+      <td class="${dateClass}">${r.date}${isToday ? ' <span style="color:var(--green);font-size:11px;">今</span>' : ''}</td>
+      <td>${r.weekday}</td>
+      <td>${r.boot}${r.manual ? ' <span title="手动设置" style="color:var(--accent);font-size:11px;">手动</span>' : ''}</td>
+      <td>${r.off}</td>
+      <td>${seasonIcon} ${r.duration}</td>
+      <td><input class="note-input" value="${r.note||''}" placeholder="备注..." onblur="saveNote('${r.date}', this.value)" onchange="saveNote('${r.date}', this.value)"></td>
+      <td>
+        <button class="edit-btn" onclick="editBootTime('${r.date}','${r.boot}')" title="修改开机时间">✏</button>
+        <button class="del-btn" onclick="deleteRecord('${r.date}')" title="删除此记录">✕</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function saveNote(date, note) {
+  let recs = loadRecords();
+  const rec = recs.find(r => r.date === date);
+  if (rec) { rec.note = note; saveRecords(recs); }
+}
+
+function deleteRecord(date) {
+  if (!confirm(`确定删除 ${date} 的记录吗？`)) return;
+  let recs = loadRecords().filter(r => r.date !== date);
+  saveRecords(recs);
+  renderHistory();
+  updateStats();
+  showToast('记录已删除', 'info');
+}
+
+function editBootTime(date, currentBoot) {
+  const val = prompt(`修改 ${date} 的开机时间（当前：${currentBoot}）\n请输入新时间（HH:MM）：`, currentBoot);
+  if (!val) return;
+  if (!/^\d{2}:\d{2}$/.test(val)) { showToast('时间格式错误，请输入 HH:MM', 'warn'); return; }
+
+  let recs = loadRecords();
+  const rec = recs.find(r => r.date === date);
+  if (!rec) return;
+
+  const wd = getWorkDuration(new Date(date));
+  const [h,m] = val.split(':').map(Number);
+  const bootD = new Date(date + 'T' + String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ':00');
+  const offD  = new Date(bootD.getTime() + wd.minutes * 60000);
+
+  rec.boot = val;
+  rec.off  = formatTime(offD);
+  rec.manual = true;
+  saveRecords(recs);
+  renderHistory();
+  showToast(`${date} 的开机时间已更新为 ${val}`, 'success');
+}
+
+function addTodayManual() {
+  const today = getTodayStr();
+  const recs = loadRecords();
+  if (recs.find(r => r.date === today)) {
+    showToast('今日记录已存在，可直接编辑', 'warn');
+    return;
+  }
+  const val = prompt('请输入今日开机时间（HH:MM）：', getCurrentTimeStr());
+  if (!val) return;
+  localStorage.setItem(BOOT_OVERRIDE_KEY, JSON.stringify({ date: today, time: val }));
+  recalculate();
+  renderHistory();
+  showToast('今日记录已添加', 'success');
+}
+
+// ============================================================
+// 统计
+// ============================================================
+function updateStats() {
+  const recs = loadRecords();
+  document.getElementById('stat-total').textContent = recs.length;
+
+  const now = new Date();
+  const thisMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const monthRecs = recs.filter(r => r.date.startsWith(thisMonth));
+  document.getElementById('disp-month').textContent = monthRecs.length;
+
+  if (recs.length === 0) {
+    document.getElementById('stat-avg').textContent = '--';
+    document.getElementById('stat-earliest').textContent = '--';
+    document.getElementById('stat-latest').textContent = '--';
+    return;
+  }
+
+  // 平均、最早、最晚开机时间（转分钟比较）
+  const minutes = recs.map(r => {
+    const [h,m] = r.boot.split(':').map(Number);
+    return h*60+m;
+  });
+  const avg = Math.round(minutes.reduce((a,b)=>a+b,0)/minutes.length);
+  const minVal = Math.min(...minutes);
+  const maxVal = Math.max(...minutes);
+
+  document.getElementById('stat-avg').textContent =
+    `${String(Math.floor(avg/60)).padStart(2,'0')}:${String(avg%60).padStart(2,'0')}`;
+  document.getElementById('stat-earliest').textContent =
+    `${String(Math.floor(minVal/60)).padStart(2,'0')}:${String(minVal%60).padStart(2,'0')}`;
+  document.getElementById('stat-latest').textContent =
+    `${String(Math.floor(maxVal/60)).padStart(2,'0')}:${String(maxVal%60).padStart(2,'0')}`;
+}
+
+// ============================================================
+// 导出功能
+// ============================================================
+function toggleExport() {
+  document.getElementById('export-dropdown').classList.toggle('show');
+}
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('.export-btn-wrap')) {
+    document.getElementById('export-dropdown').classList.remove('show');
+  }
+});
+
+// 获取本周的日期范围
+function getWeekRange() {
+  const now = new Date();
+  const dayOfWeek = now.getDay() || 7; // 0=周日, 7=周日
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - dayOfWeek + 1);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+
+  const formatDate = (d) => {
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  };
+
+  return {
+    start: formatDate(monday),
+    end: formatDate(sunday),
+    label: `${formatDate(monday)} 至 ${formatDate(sunday)}`
+  };
+}
+
+// 导出周总结（WorkList-W）
+function exportWeekly() {
+  document.getElementById('export-dropdown').classList.remove('show');
+
+  const weekRange = getWeekRange();
+  const recs = loadRecords().filter(r => r.date >= weekRange.start && r.date <= weekRange.end);
+  const shootingProjects = loadShootingProjects().filter(p => p.shootingDate >= weekRange.start && p.shootingDate <= weekRange.end);
+  const editingProjects = loadEditingProjects();
+
+  if (recs.length === 0 && shootingProjects.length === 0 && editingProjects.length === 0) {
+    showToast('本周暂无数据可导出', 'warn');
+    return;
+  }
+
+  let csv = '\uFEFF'; // BOM for UTF-8
+
+  csv += 'WorkList-W - 周总结\n';
+  csv += `导出时间：${new Date().toLocaleString('zh-CN')}\n`;
+  csv += `统计周期：${weekRange.label}\n`;
+  csv += '\n';
+
+  // 当周 WorkTime
+  if (recs.length > 0) {
+    csv += '一、本周工作时间（WorkTime）\n';
+    csv += '日期,星期,开机时间,应下班时间,季节,工时,实际下班时间,加班时长,加班开始时间,加班结束时间,备注\n';
+    recs.forEach(r => {
+      csv += `${r.date},${r.weekday},${r.boot},${r.off},${r.season},${r.duration},${r.actualOff||''},${r.overtime||''},${r.overtimeStart||''},${r.overtimeEnd||''},"${r.note||''}"\n`;
+    });
+    csv += '\n';
+  }
+
+  // 当周拍摄项目
+  if (shootingProjects.length > 0) {
+    csv += '二、本周拍摄项目\n';
+    csv += '序号,视频标题,拍摄日期,创建时间\n';
+    shootingProjects.forEach((p, idx) => {
+      csv += `${idx + 1},"${p.title}",${p.shootingDate},"${p.createdAt}"\n`;
+    });
+    csv += '\n';
+  }
+
+  // 所有剪辑项目（分已完成/未完成）
+  if (editingProjects.length > 0) {
+    csv += '三、剪辑项目（全部）\n';
+
+    // 已完成项目
+    const completedProjects = editingProjects.filter(p => p.editingCompleted);
+    if (completedProjects.length > 0) {
+      csv += '【已完成项目】\n';
+      csv += '序号,视频标题,拍摄日期,剪辑完成日期\n';
+      completedProjects.forEach((p, idx) => {
+        csv += `${idx + 1},"${p.title}",${p.shootingDate},${p.editingCompletedDate}\n`;
+      });
+      csv += '\n';
+    }
+
+    // 未完成项目
+    const uncompletedProjects = editingProjects.filter(p => !p.editingCompleted);
+    if (uncompletedProjects.length > 0) {
+      csv += '【未完成项目】\n';
+      csv += '序号,视频标题,拍摄日期,创建时间\n';
+      uncompletedProjects.forEach((p, idx) => {
+        csv += `${idx + 1},"${p.title}",${p.shootingDate},"${p.createdAt}"\n`;
+      });
+      csv += '\n';
+    }
+
+    // 统计信息
+    const completed = completedProjects.length;
+    const total = editingProjects.length;
+    const completionRate = total > 0 ? ((completed / total) * 100).toFixed(1) : 0;
+    csv += `剪辑项目统计：已完成 ${completed} 个，未完成 ${uncompletedProjects.length} 个，完成率 ${completionRate}%\n`;
+    csv += '\n';
+  }
+
+  const filename = `WorkList-W_${new Date().toLocaleDateString('zh-CN').replace(/\//g,'-')}.csv`;
+  downloadFile(filename, csv, 'text/csv;charset=utf-8');
+  showToast('周总结（WorkList-W）已导出', 'success');
+}
+
+// 导出所有 WorkTime
+function exportAllWorkTime() {
+  document.getElementById('export-dropdown').classList.remove('show');
+  const recs = loadRecords();
+  if (recs.length === 0) { showToast('没有记录可导出', 'warn'); return; }
+
+  const header = ['日期','星期','开机时间','应下班时间','季节','工时','实际下班时间','加班时长','加班开始时间','加班结束时间','备注','是否手动'];
+  const rows = recs.map(r => [
+    r.date, r.weekday, r.boot, r.off, r.season, r.duration,
+    r.actualOff||'', r.overtime||'', r.overtimeStart||'', r.overtimeEnd||'',
+    r.note||'', r.manual?'是':'否'
+  ]);
+
+  const csv = '\uFEFF' + [header, ...rows].map(row =>
+    row.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')
+  ).join('\r\n');
+
+  downloadFile(`WorkTime_${new Date().toLocaleDateString('zh-CN').replace(/\//g,'-')}.csv`, csv, 'text/csv;charset=utf-8');
+  showToast('WorkTime 已导出', 'success');
+}
+
+// 导出月总结（WorkList-M）
+function exportMonthly() {
+  document.getElementById('export-dropdown').classList.remove('show');
+
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const monthStr = `${year}-${month}`;
+  const monthLabel = `${year}年${now.getMonth() + 1}月`;
+
+  const recs = loadRecords().filter(r => r.date.startsWith(monthStr));
+  const shootingProjects = loadShootingProjects().filter(p => p.shootingDate.startsWith(monthStr));
+  const editingProjects = loadEditingProjects().filter(p => p.shootingDate.startsWith(monthStr));
+
+  if (recs.length === 0 && shootingProjects.length === 0 && editingProjects.length === 0) {
+    showToast('本月暂无数据可导出', 'warn');
+    return;
+  }
+
+  let csv = '\uFEFF'; // BOM for UTF-8
+
+  csv += 'WorkList-M - 月总结\n';
+  csv += `导出时间：${new Date().toLocaleString('zh-CN')}\n`;
+  csv += `统计周期：${monthLabel}\n`;
+  csv += '\n';
+
+  // 当月 WorkTime
+  if (recs.length > 0) {
+    csv += '一、本月工作时间（WorkTime）\n';
+    csv += '日期,星期,开机时间,应下班时间,季节,工时,实际下班时间,加班时长,加班开始时间,加班结束时间,备注\n';
+    recs.forEach(r => {
+      csv += `${r.date},${r.weekday},${r.boot},${r.off},${r.season},${r.duration},${r.actualOff||''},${r.overtime||''},${r.overtimeStart||''},${r.overtimeEnd||''},"${r.note||''}"\n`;
+    });
+    csv += '\n';
+  }
+
+  // 当月拍摄项目
+  if (shootingProjects.length > 0) {
+    csv += '二、本月拍摄项目\n';
+    csv += '序号,视频标题,拍摄日期,创建时间\n';
+    shootingProjects.forEach((p, idx) => {
+      csv += `${idx + 1},"${p.title}",${p.shootingDate},"${p.createdAt}"\n`;
+    });
+    csv += '\n';
+  }
+
+  // 当月剪辑项目（分已完成/未完成）
+  if (editingProjects.length > 0) {
+    csv += '三、本月剪辑项目\n';
+
+    // 已完成项目
+    const completedProjects = editingProjects.filter(p => p.editingCompleted);
+    if (completedProjects.length > 0) {
+      csv += '【已完成项目】\n';
+      csv += '序号,视频标题,拍摄日期,剪辑完成日期\n';
+      completedProjects.forEach((p, idx) => {
+        csv += `${idx + 1},"${p.title}",${p.shootingDate},${p.editingCompletedDate}\n`;
+      });
+      csv += '\n';
+    }
+
+    // 未完成项目
+    const uncompletedProjects = editingProjects.filter(p => !p.editingCompleted);
+    if (uncompletedProjects.length > 0) {
+      csv += '【未完成项目】\n';
+      csv += '序号,视频标题,拍摄日期,创建时间\n';
+      uncompletedProjects.forEach((p, idx) => {
+        csv += `${idx + 1},"${p.title}",${p.shootingDate},"${p.createdAt}"\n`;
+      });
+      csv += '\n';
+    }
+
+    // 统计信息
+    const completed = completedProjects.length;
+    const total = editingProjects.length;
+    const completionRate = total > 0 ? ((completed / total) * 100).toFixed(1) : 0;
+    csv += `剪辑项目统计：已完成 ${completed} 个，未完成 ${uncompletedProjects.length} 个，完成率 ${completionRate}%\n`;
+    csv += '\n';
+  }
+
+  const filename = `WorkList-M_${year}${month}.csv`;
+  downloadFile(filename, csv, 'text/csv;charset=utf-8');
+  showToast('月总结（WorkList-M）已导出', 'success');
+}
+
+function downloadFile(filename, content, type) {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function clearAllData() {
+  if (!confirm('确定要清除所有记录吗？此操作不可撤销！')) return;
+  localStorage.removeItem(STORE_KEY);
+  localStorage.removeItem(BOOT_OVERRIDE_KEY);
+  recalculate();
+  renderHistory();
+  updateStats();
+  showToast('所有记录已清除', 'warn');
+}
+
+// ============================================================
+// Toast 通知
+// ============================================================
+function showToast(msg, type='info') {
+  const area = document.getElementById('toast-area');
+  const t = document.createElement('div');
+  t.className = `toast toast-${type}`;
+  t.textContent = msg;
+  area.appendChild(t);
+  setTimeout(() => {
+    t.style.opacity = '0';
+    t.style.transition = 'opacity .3s';
+    setTimeout(()=>t.remove(), 300);
+  }, 3000);
+}
+
+// ============================================================
+// 日期/时间显示
+// ============================================================
+function updateDateDisplay() {
+  const now = new Date();
+  const days = ['星期日','星期一','星期二','星期三','星期四','星期五','星期六'];
+  document.getElementById('today-date').textContent =
+    `${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日 ${days[now.getDay()]}`;
+}
+
+// ============================================================
+// 本地数据导出 / 导入
+// ============================================================
+
+/** 导出：把所有数据打包成 JSON 文件下载 */
+function exportData() {
+  const keys = [STORE_KEY, SETTINGS_KEY, SHOOTING_KEY, EDITING_KEY, BOOT_OVERRIDE_KEY];
+  const pkg = { _version: 2, _exported: new Date().toISOString(), _source: 'WorkTimer-Cloud' };
+  keys.forEach(k => {
+    try { pkg[k] = JSON.parse(localStorage.getItem(k)); } catch { pkg[k] = null; }
+  });
+  const blob = new Blob([JSON.stringify(pkg, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const date = new Date().toISOString().slice(0, 10);
+  a.href = url;
+  a.download = `worktimer_backup_${date}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('数据已导出 ✓', 'success');
+}
+
+/** 导入：读取 JSON 文件，还原所有数据到 localStorage */
+function importData(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  // 重置 input，以便下次还能选同一个文件
+  event.target.value = '';
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const pkg = JSON.parse(e.target.result);
+      // 基本格式校验
+      if (!pkg || typeof pkg !== 'object') throw new Error('文件格式错误');
+      const keys = [STORE_KEY, SETTINGS_KEY, SHOOTING_KEY, EDITING_KEY, BOOT_OVERRIDE_KEY];
+      const hasAnyKey = keys.some(k => pkg[k] !== undefined && pkg[k] !== null);
+      if (!hasAnyKey) throw new Error('文件中没有找到 WorkTimer 数据，请确认文件来源正确');
+
+      if (!confirm(`即将从文件「${file.name}」导入数据，这将覆盖当前本地数据，确认继续？`)) return;
+
+      // 写入 localStorage
+      keys.forEach(k => {
+        if (pkg[k] !== undefined && pkg[k] !== null) {
+          localStorage.setItem(k, JSON.stringify(pkg[k]));
+        }
+      });
+
+      // 刷新所有视图
+      initSettings();
+      recalculate();
+      renderHistory();
+      renderCalendar();
+      renderShootingProjects();
+      renderEditingProjects();
+      requestAnimationFrame(restoreLayout);
+
+      const srcLabel = pkg._source ? `（来源：${pkg._source}）` : '';
+      const exportDate = pkg._exported ? `，导出于 ${pkg._exported.slice(0,10)}` : '';
+      showToast(`数据导入成功${srcLabel}${exportDate} ✓`, 'success');
+    } catch(err) {
+      showToast('导入失败：' + err.message, 'warn');
+    }
+  };
+  reader.readAsText(file);
+}
+
+// ============================================================
+// 云端同步（GitHub Gist API）
+// ============================================================
+const CLOUD_TOKEN_KEY  = 'worktimer_cloud_token';
+const CLOUD_GIST_KEY   = 'worktimer_cloud_gist_id';
+const CLOUD_LASTSYNC_KEY = 'worktimer_cloud_last_sync';
+const GIST_API = 'https://api.github.com/gists';
+const GIST_FILENAME = 'worktimer_data.json';
+
+// 所有需要同步的数据 key
+const ALL_DATA_KEYS = [STORE_KEY, SETTINGS_KEY, SHOOTING_KEY, EDITING_KEY, LAYOUT_KEY];
+
+function cloudGetToken()  { return localStorage.getItem(CLOUD_TOKEN_KEY)  || ''; }
+function cloudGetGistId() { return localStorage.getItem(CLOUD_GIST_KEY)   || ''; }
+
+/** 把本地所有数据打包成一个 JSON 对象 */
+function cloudPackData() {
+  const pkg = { _version: 2, _exported: new Date().toISOString() };
+  ALL_DATA_KEYS.forEach(k => {
+    try { pkg[k] = JSON.parse(localStorage.getItem(k)); } catch { pkg[k] = null; }
+  });
+  return pkg;
+}
+
+/** 把下载的 JSON 对象还原到 localStorage */
+function cloudUnpackData(pkg) {
+  ALL_DATA_KEYS.forEach(k => {
+    if (pkg[k] !== undefined && pkg[k] !== null) {
+      localStorage.setItem(k, JSON.stringify(pkg[k]));
+    }
+  });
+}
+
+/** 连接云端：校验 Token，创建或绑定 Gist */
+async function cloudConnect() {
+  const token  = document.getElementById('cloud-token-input').value.trim();
+  const gistId = document.getElementById('cloud-gist-id-input').value.trim();
+
+  if (!token) { showToast('请输入 GitHub Token', 'warn'); return; }
+
+  cloudSetStatus('loading', '正在连接...');
+
+  try {
+    // 验证 token 是否有效
+    const userRes = await fetch('https://api.github.com/user', {
+      headers: { Authorization: `token ${token}`, Accept: 'application/vnd.github.v3+json' }
+    });
+    if (!userRes.ok) throw new Error('Token 无效或无权限，请检查是否勾选了 gist 权限');
+    const user = await userRes.json();
+
+    let finalGistId = gistId;
+
+    if (!finalGistId) {
+      // 自动创建新 Gist
+      const createRes = await fetch(GIST_API, {
+        method: 'POST',
+        headers: {
+          Authorization: `token ${token}`,
+          Accept: 'application/vnd.github.v3+json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          description: 'WorkTimer 工时数据备份',
+          public: false,
+          files: { [GIST_FILENAME]: { content: JSON.stringify(cloudPackData(), null, 2) } }
+        })
+      });
+      if (!createRes.ok) throw new Error('创建 Gist 失败');
+      const gist = await createRes.json();
+      finalGistId = gist.id;
+      showToast(`已创建新 Gist，ID: ${finalGistId}`, 'success');
+    } else {
+      // 验证已有 Gist 是否可访问
+      const checkRes = await fetch(`${GIST_API}/${finalGistId}`, {
+        headers: { Authorization: `token ${token}`, Accept: 'application/vnd.github.v3+json' }
+      });
+      if (!checkRes.ok) throw new Error('Gist ID 无效或无权访问');
+    }
+
+    // 保存配置
+    localStorage.setItem(CLOUD_TOKEN_KEY, token);
+    localStorage.setItem(CLOUD_GIST_KEY,  finalGistId);
+
+    cloudRenderConfigured(finalGistId);
+    showToast(`已连接到 GitHub Gist（${user.login}）`, 'success');
+
+    // 连接后自动执行一次上传
+    await cloudPush();
+  } catch(e) {
+    cloudSetStatus('error', '连接失败');
+    showToast('连接失败：' + e.message, 'warn');
+  }
+}
+
+/** 上传本地数据到 Gist */
+async function cloudPush() {
+  const token  = cloudGetToken();
+  const gistId = cloudGetGistId();
+  if (!token || !gistId) { showToast('请先配置云端同步', 'warn'); return; }
+
+  cloudSetStatus('loading', '正在上传...');
+  try {
+    const data = cloudPackData();
+    const res = await fetch(`${GIST_API}/${gistId}`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `token ${token}`,
+        Accept: 'application/vnd.github.v3+json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        files: { [GIST_FILENAME]: { content: JSON.stringify(data, null, 2) } }
+      })
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    const now = new Date().toLocaleString('zh-CN');
+    localStorage.setItem(CLOUD_LASTSYNC_KEY, now);
+    cloudSetStatus('ok', '已同步');
+    document.getElementById('cloud-last-sync').textContent = `上次上传：${now}`;
+    showToast('数据已上传到云端 ☁', 'success');
+  } catch(e) {
+    cloudSetStatus('error', '上传失败');
+    showToast('上传失败：' + e.message, 'warn');
+  }
+}
+
+/** 从 Gist 下载数据到本地 */
+async function cloudPull() {
+  const token  = cloudGetToken();
+  const gistId = cloudGetGistId();
+  if (!token || !gistId) { showToast('请先配置云端同步', 'warn'); return; }
+
+  if (!confirm('从云端下载数据将覆盖本地现有数据，确认继续？')) return;
+
+  cloudSetStatus('loading', '正在下载...');
+  try {
+    const res = await fetch(`${GIST_API}/${gistId}`, {
+      headers: { Authorization: `token ${token}`, Accept: 'application/vnd.github.v3+json' }
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const gist = await res.json();
+    const file = gist.files[GIST_FILENAME];
+    if (!file) throw new Error('Gist 中没有找到 worktimer_data.json，请先上传一次');
+    const pkg = JSON.parse(file.content);
+    cloudUnpackData(pkg);
+
+    // 刷新页面所有数据显示
+    initSettings();
+    recalculate();
+    renderHistory();
+    renderCalendar();
+    renderShootingProjects();
+    renderEditingProjects();
+    requestAnimationFrame(restoreLayout);
+
+    const now = new Date().toLocaleString('zh-CN');
+    localStorage.setItem(CLOUD_LASTSYNC_KEY, now);
+    cloudSetStatus('ok', '已同步');
+    document.getElementById('cloud-last-sync').textContent = `上次下载：${now}`;
+    showToast('数据已从云端下载并更新 ✓', 'success');
+  } catch(e) {
+    cloudSetStatus('error', '下载失败');
+    showToast('下载失败：' + e.message, 'warn');
+  }
+}
+
+/** 自动同步：拉取云端，合并后推送（以记录条数多的为准） */
+async function cloudAutoSync() {
+  const token  = cloudGetToken();
+  const gistId = cloudGetGistId();
+  if (!token || !gistId) { showToast('请先配置云端同步', 'warn'); return; }
+
+  cloudSetStatus('loading', '正在自动同步...');
+  try {
+    // 先拉取云端
+    const res = await fetch(`${GIST_API}/${gistId}`, {
+      headers: { Authorization: `token ${token}`, Accept: 'application/vnd.github.v3+json' }
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const gist = await res.json();
+    const file = gist.files[GIST_FILENAME];
+
+    if (file) {
+      const remotePkg = JSON.parse(file.content);
+      const remoteRecs = remotePkg[STORE_KEY] || [];
+      const localRecs  = loadRecords();
+
+      // 合并：以 date 为 key 去重，云端和本地各取最新
+      const merged = {};
+      [...remoteRecs, ...localRecs].forEach(r => {
+        if (!merged[r.date] || r.created > (merged[r.date].created || '')) {
+          merged[r.date] = r;
+        }
+      });
+      const mergedRecs = Object.values(merged).sort((a,b) => a.date.localeCompare(b.date));
+      saveRecords(mergedRecs);
+
+      // 合并拍摄/剪辑项目（id 去重）
+      const remoteShooting = remotePkg[SHOOTING_KEY] || [];
+      const localShooting  = loadShootingProjects();
+      const mergedShooting = Object.values(
+        [...remoteShooting, ...localShooting].reduce((m,p) => { m[p.id] = p; return m; }, {})
+      );
+      saveShootingProjects(mergedShooting);
+
+      const remoteEditing = remotePkg[EDITING_KEY] || [];
+      const localEditing  = loadEditingProjects();
+      const mergedEditing = Object.values(
+        [...remoteEditing, ...localEditing].reduce((m,p) => { m[p.id] = p; return m; }, {})
+      );
+      saveEditingProjects(mergedEditing);
+    }
+
+    // 再上传合并结果
+    const uploadData = cloudPackData();
+    const patchRes = await fetch(`${GIST_API}/${gistId}`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `token ${token}`,
+        Accept: 'application/vnd.github.v3+json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        files: { [GIST_FILENAME]: { content: JSON.stringify(uploadData, null, 2) } }
+      })
+    });
+    if (!patchRes.ok) throw new Error(`上传失败 HTTP ${patchRes.status}`);
+
+    // 刷新显示
+    recalculate();
+    renderHistory();
+    renderCalendar();
+    renderShootingProjects();
+    renderEditingProjects();
+
+    const now = new Date().toLocaleString('zh-CN');
+    localStorage.setItem(CLOUD_LASTSYNC_KEY, now);
+    cloudSetStatus('ok', '已同步');
+    document.getElementById('cloud-last-sync').textContent = `上次自动同步：${now}`;
+    showToast('自动同步完成（本地 + 云端已合并）✓', 'success');
+  } catch(e) {
+    cloudSetStatus('error', '同步失败');
+    showToast('自动同步失败：' + e.message, 'warn');
+  }
+}
+
+/** 断开连接（仅移除 token，不删除 Gist） */
+function cloudDisconnect() {
+  if (!confirm('断开后需重新输入 Token 才能同步，确认？')) return;
+  localStorage.removeItem(CLOUD_TOKEN_KEY);
+  localStorage.removeItem(CLOUD_GIST_KEY);
+  localStorage.removeItem(CLOUD_LASTSYNC_KEY);
+  document.getElementById('cloud-configured').style.display = 'none';
+  document.getElementById('cloud-unconfigured').style.display = 'block';
+  document.getElementById('cloud-token-input').value = '';
+  document.getElementById('cloud-gist-id-input').value = '';
+  showToast('已断开云端连接', 'info');
+}
+
+/** 更新同步状态指示灯 */
+function cloudSetStatus(state, text) {
+  const dot  = document.getElementById('cloud-status-dot');
+  const label = document.getElementById('cloud-status-text');
+  const colors = { ok: 'var(--green)', error: 'var(--red)', loading: 'var(--yellow)', idle: 'var(--sub)' };
+  if (dot) dot.style.background = colors[state] || colors.idle;
+  if (label) label.textContent = text || '';
+}
+
+/** 渲染已配置状态面板 */
+function cloudRenderConfigured(gistId) {
+  document.getElementById('cloud-unconfigured').style.display = 'none';
+  document.getElementById('cloud-configured').style.display  = 'block';
+  document.getElementById('cloud-gist-id-display').textContent = gistId;
+  // Gist 链接
+  const linkWrap = document.getElementById('cloud-gist-link-wrap');
+  if (linkWrap) {
+    linkWrap.innerHTML = `<a href="https://gist.github.com/${gistId}" target="_blank"
+      style="color:var(--accent);text-decoration:none;font-size:12px;">→ 在 GitHub 查看</a>`;
+  }
+  const lastSync = localStorage.getItem(CLOUD_LASTSYNC_KEY);
+  if (lastSync) {
+    document.getElementById('cloud-last-sync').textContent = `上次同步：${lastSync}`;
+    cloudSetStatus('ok', '已同步');
+  } else {
+    cloudSetStatus('idle', '未同步');
+  }
+}
+
+/** 初始化云端同步 UI */
+function initCloud() {
+  const token  = cloudGetToken();
+  const gistId = cloudGetGistId();
+  if (token && gistId) {
+    cloudRenderConfigured(gistId);
+  } else {
+    document.getElementById('cloud-unconfigured').style.display = 'block';
+    document.getElementById('cloud-configured').style.display  = 'none';
+  }
+}
+
+// ============================================================
+// 初始化
+// ============================================================
+function init() {
+  // 设置默认月份筛选为本月
+  const now = new Date();
+  document.getElementById('filter-month').value =
+    `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+
+  initSettings();
+  updateDateDisplay();
+  recalculate();
+  renderHistory();
+
+  // 初始化日历为当前月
+  currentCalendarDate = new Date();
+  renderCalendar();
+
+  // 自动将拍摄项目转入剪辑项目
+  const transferred = autoTransferToEditing();
+  if (transferred > 0) {
+    setTimeout(() => showToast(`已自动转入 ${transferred} 个拍摄项目到剪辑列表`, 'info'), 1000);
+  }
+
+  // 渲染拍摄和剪辑项目
+  renderShootingProjects();
+  renderEditingProjects();
+
+  // 启动倒计时
+  tick();
+  setInterval(tick, 1000);
+
+  // 请求通知权限
+  requestNotifPermission();
+
+  // 初始化云端同步
+  initCloud();
+
+  // 恢复上次保存的布局（列宽 + 行高）
+  requestAnimationFrame(restoreLayout);
+}
+
+// 页面加载完成后初始化
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
+</script>
+</body>
+</html>
